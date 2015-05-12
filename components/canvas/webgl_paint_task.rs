@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use canvas_msg::{CanvasMsg, CanvasWebGLMsg, CanvasCommonMsg};
+use canvas_traits::CanvasMetadata;
 use geom::size::Size2D;
 
 use gleam::gl;
@@ -14,7 +15,7 @@ use std::borrow::ToOwned;
 use std::slice::bytes::copy_memory;
 use std::sync::mpsc::{channel, Sender};
 use util::vec::byte_swap;
-use offscreen_gl_context::{GLContext, GLContextAttributes};
+use offscreen_gl_context::{GLContext, GLContextAttributes, ColorAttachmentType};
 
 pub struct WebGLPaintTask {
     size: Size2D<i32>,
@@ -29,7 +30,7 @@ unsafe impl Send for WebGLPaintTask {}
 impl WebGLPaintTask {
     fn new(size: Size2D<i32>) -> Result<WebGLPaintTask, &'static str> {
         // TODO(ecoal95): Get the GLContextAttributes from the `GetContext` call
-        let context = try!(GLContext::create_offscreen(size, GLContextAttributes::default()));
+        let context = try!(GLContext::create_offscreen_with_color_attachment(size, GLContextAttributes::default(), ColorAttachmentType::TextureWithSurface));
         Ok(WebGLPaintTask {
             size: size,
             original_context_size: size,
@@ -75,6 +76,7 @@ impl WebGLPaintTask {
                         match message {
                             CanvasCommonMsg::Close => break,
                             CanvasCommonMsg::SendPixelContents(chan) => painter.send_pixel_contents(chan),
+                            CanvasCommonMsg::SendMetadata(chan) => painter.send_metadata(chan),
                             // TODO(ecoal95): handle error nicely
                             CanvasCommonMsg::Recreate(size) => painter.recreate(size).unwrap(),
                         }
@@ -158,7 +160,7 @@ impl WebGLPaintTask {
         gl::link_program(program_id);
     }
 
-    fn send_pixel_contents(&mut self, chan: Sender<Vec<u8>>) {
+    fn send_pixel_contents(&self, chan: Sender<Vec<u8>>) {
         // FIXME(#5652, dmarcos) Instead of a readback strategy we have
         // to layerize the canvas
         let width = self.size.width as usize;
@@ -180,6 +182,11 @@ impl WebGLPaintTask {
         // rgba -> bgra
         byte_swap(&mut pixels);
         chan.send(pixels).unwrap();
+    }
+
+    fn send_metadata(&self, chan: Sender<CanvasMetadata>) {
+        let surf_ref = self.gl_context.borrow_draw_buffer().unwrap().borrow_bound_surface().unwrap();
+        chan.send(CanvasMetadata::from_native_surface(surf_ref)).unwrap();
     }
 
     fn shader_source(&self, shader_id: u32, source_lines: Vec<String>) {

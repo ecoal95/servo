@@ -14,6 +14,7 @@ extern crate util;
 extern crate gleam;
 extern crate num;
 extern crate offscreen_gl_context;
+extern crate canvas_traits;
 
 #[macro_use]
 extern crate log;
@@ -21,3 +22,4 @@ extern crate log;
 pub mod canvas_paint_task;
 pub mod webgl_paint_task;
 pub mod canvas_msg;
+

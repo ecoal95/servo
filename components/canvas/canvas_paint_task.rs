@@ -257,6 +257,7 @@ impl<'a> CanvasPaintTask<'a> {
                             CanvasCommonMsg::Recreate(size) => painter.recreate(size),
                             CanvasCommonMsg::SendPixelContents(chan) =>
                                 painter.send_pixel_contents(chan),
+                            CanvasCommonMsg::SendMetadata(chan) => unimplemented!(),
                         }
                     },
                     CanvasMsg::WebGL(_) => panic!("Wrong message sent to Canvas2D task"),

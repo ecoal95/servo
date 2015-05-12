@@ -16,6 +16,9 @@ git = "https://github.com/servo/rust-geom"
 [dependencies.gleam]
 git = "https://github.com/servo/gleam"
 
+[dependencies.canvas_traits]
+path = "../canvas_traits"
+
 [dependencies.util]
 path = "../util"
 
@@ -24,6 +27,8 @@ path = "../gfx"
 
 [dependencies.offscreen_gl_context]
 git = "https://github.com/ecoal95/rust-offscreen-rendering-context"
+branch = "layers"
+features = ["texture_surface"]
 
 [dependencies]
 cssparser = "0.3.1"

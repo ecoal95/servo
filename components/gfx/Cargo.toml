@@ -20,6 +20,9 @@ path = "../util"
 [dependencies.msg]
 path = "../msg"
 
+[dependencies.canvas_traits]
+path = "../canvas_traits"
+
 [dependencies.profile_traits]
 path = "../profile_traits"
 

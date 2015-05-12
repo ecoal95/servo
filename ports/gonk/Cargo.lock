@@ -55,13 +55,21 @@ name = "canvas"
 version = "0.0.1"
 dependencies = [
  "azure 0.1.0 (git+https://github.com/servo/rust-azure)",
+ "canvas_traits 0.0.1",
  "cssparser 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "geom 0.1.0 (git+https://github.com/servo/rust-geom)",
  "gfx 0.0.1",
  "gleam 0.0.1 (git+https://github.com/servo/gleam)",
  "num 0.1.24 (registry+https://github.com/rust-lang/crates.io-index)",
- "offscreen_gl_context 0.0.1 (git+https://github.com/ecoal95/rust-offscreen-rendering-context)",
+ "offscreen_gl_context 0.0.1 (git+https://github.com/ecoal95/rust-offscreen-rendering-context?branch=layers)",
  "util 0.0.1",
+]
+
+[[package]]
+name = "canvas_traits"
+version = "0.0.1"
+dependencies = [
+ "layers 0.1.0 (git+https://github.com/servo/rust-layers)",
 ]
 
 [[package]]
@@ -343,6 +351,7 @@ version = "0.0.1"
 dependencies = [
  "azure 0.1.0 (git+https://github.com/servo/rust-azure)",
  "bitflags 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "canvas_traits 0.0.1",
  "core_foundation 0.1.0 (git+https://github.com/servo/rust-core-foundation)",
  "core_graphics 0.1.0 (git+https://github.com/servo/rust-core-graphics)",
  "core_text 0.1.0 (git+https://github.com/servo/rust-core-text)",
@@ -503,7 +512,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "layers"
 version = "0.1.0"
-source = "git+https://github.com/servo/rust-layers#018259e838c3842032010829feeaba316e577376"
+source = "git+https://github.com/servo/rust-layers#88e87c022abb3e810a43b7d69950271ad04e73e4"
 dependencies = [
  "azure 0.1.0 (git+https://github.com/servo/rust-azure)",
  "cgl 0.0.1 (git+https://github.com/servo/rust-cgl)",
@@ -703,13 +712,14 @@ dependencies = [
 [[package]]
 name = "offscreen_gl_context"
 version = "0.0.1"
-source = "git+https://github.com/ecoal95/rust-offscreen-rendering-context#c2b3dfd7fe344384e4206672b99c296141f5b4d6"
+source = "git+https://github.com/ecoal95/rust-offscreen-rendering-context?branch=layers#fed5620dc832c4c2bc7f0130fd2940af06323fa3"
 dependencies = [
  "cgl 0.0.1 (git+https://github.com/servo/rust-cgl)",
  "core_foundation 0.1.0 (git+https://github.com/servo/rust-core-foundation)",
  "geom 0.1.0 (git+https://github.com/servo/rust-geom)",
  "gleam 0.0.1 (git+https://github.com/servo/gleam)",
  "glx 0.0.1 (git+https://github.com/servo/rust-glx)",
+ "layers 0.1.0 (git+https://github.com/servo/rust-layers)",
  "libc 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "xlib 0.1.0 (git+https://github.com/servo/rust-xlib)",

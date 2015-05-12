@@ -33,6 +33,7 @@ use geom::num::Zero;
 use libc::uintptr_t;
 use paint_task::PaintLayer;
 use msg::compositor_msg::LayerId;
+use canvas_traits::CanvasMetadata;
 use net_traits::image::base::Image;
 use util::opts;
 use util::cursor::Cursor;
@@ -179,6 +180,9 @@ impl DisplayList {
                     }
                     DisplayItem::ImageClass(ref image) => {
                         println!("{:?} Image. {:?}", indentation, image.base.bounds)
+                    }
+                    DisplayItem::CanvasClass(ref canvas) => {
+                        println!("{:?} Canvas. {:?}", indentation, canvas.base.bounds)
                     }
                     DisplayItem::BorderClass(ref border) => {
                         println!("{:?} Border. {:?}", indentation, border.base.bounds)
@@ -578,6 +582,7 @@ pub enum DisplayItem {
     SolidColorClass(Box<SolidColorDisplayItem>),
     TextClass(Box<TextDisplayItem>),
     ImageClass(Box<ImageDisplayItem>),
+    CanvasClass(Box<CanvasDisplayItem>),
     BorderClass(Box<BorderDisplayItem>),
     GradientClass(Box<GradientDisplayItem>),
     LineClass(Box<LineDisplayItem>),
@@ -868,6 +873,19 @@ impl HeapSizeOf for ImageDisplayItem {
     }
 }
 
+#[derive(Clone)]
+pub struct CanvasDisplayItem {
+    pub base: BaseDisplayItem,
+    pub metadata: CanvasMetadata,
+}
+
+impl HeapSizeOf for CanvasDisplayItem {
+    fn heap_size_of_children(&self) -> usize {
+        // TODO: what measurement should be taken in account here?
+        self.base.heap_size_of_children()
+    }
+}
+
 /// Paints a gradient.
 #[derive(Clone)]
 pub struct GradientDisplayItem {
@@ -1083,6 +1101,10 @@ impl DisplayItem {
                 }
             }
 
+            DisplayItem::CanvasClass(ref canvas_item) => {
+                paint_context.draw_surface(canvas_item.metadata.surface_id);
+            }
+
             DisplayItem::BorderClass(ref border) => {
                 paint_context.draw_border(&border.base.bounds,
                                           &border.border_widths,
@@ -1118,6 +1140,7 @@ impl DisplayItem {
             DisplayItem::SolidColorClass(ref solid_color) => &solid_color.base,
             DisplayItem::TextClass(ref text) => &text.base,
             DisplayItem::ImageClass(ref image_item) => &image_item.base,
+            DisplayItem::CanvasClass(ref canvas_item) => &canvas_item.base,
             DisplayItem::BorderClass(ref border) => &border.base,
             DisplayItem::GradientClass(ref gradient) => &gradient.base,
             DisplayItem::LineClass(ref line) => &line.base,
@@ -1130,6 +1153,7 @@ impl DisplayItem {
             DisplayItem::SolidColorClass(ref mut solid_color) => &mut solid_color.base,
             DisplayItem::TextClass(ref mut text) => &mut text.base,
             DisplayItem::ImageClass(ref mut image_item) => &mut image_item.base,
+            DisplayItem::CanvasClass(ref mut canvas_item) => &mut canvas_item.base,
             DisplayItem::BorderClass(ref mut border) => &mut border.base,
             DisplayItem::GradientClass(ref mut gradient) => &mut gradient.base,
             DisplayItem::LineClass(ref mut line) => &mut line.base,
@@ -1157,6 +1181,7 @@ impl fmt::Debug for DisplayItem {
                 DisplayItem::SolidColorClass(_) => "SolidColor",
                 DisplayItem::TextClass(_) => "Text",
                 DisplayItem::ImageClass(_) => "Image",
+                DisplayItem::CanvasClass(_) => "Canvas",
                 DisplayItem::BorderClass(_) => "Border",
                 DisplayItem::GradientClass(_) => "Gradient",
                 DisplayItem::LineClass(_) => "Line",
@@ -1174,6 +1199,7 @@ impl HeapSizeOf for DisplayItem {
             SolidColorClass(ref item) => item.heap_size_of_children(),
             TextClass(ref item)       => item.heap_size_of_children(),
             ImageClass(ref item)      => item.heap_size_of_children(),
+            CanvasClass(ref item)     => item.heap_size_of_children(),
             BorderClass(ref item)     => item.heap_size_of_children(),
             GradientClass(ref item)   => item.heap_size_of_children(),
             LineClass(ref item)       => item.heap_size_of_children(),

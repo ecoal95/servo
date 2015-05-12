@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use canvas_paint_task::{FillOrStrokeStyle, LineCapStyle, LineJoinStyle, CompositionOrBlending};
+use canvas_traits::CanvasMetadata;
 use geom::matrix2d::Matrix2D;
 use geom::point::Point2D;
 use geom::rect::Rect;
@@ -80,4 +81,5 @@ pub enum CanvasCommonMsg {
     Close,
     Recreate(Size2D<i32>),
     SendPixelContents(Sender<Vec<u8>>),
+    SendMetadata(Sender<CanvasMetadata>),
 }

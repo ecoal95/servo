@@ -29,6 +29,7 @@ use gfx::display_list::{BorderRadii, BoxShadowClipMode, BoxShadowDisplayItem, Cl
 use gfx::display_list::{DisplayItem, DisplayList, DisplayItemMetadata};
 use gfx::display_list::{GradientDisplayItem};
 use gfx::display_list::{GradientStop, ImageDisplayItem, LineDisplayItem};
+use gfx::display_list::{CanvasDisplayItem};
 use gfx::display_list::{OpaqueNode, SolidColorDisplayItem};
 use gfx::display_list::{StackingContext, TextDisplayItem, TextOrientation};
 use gfx::paint_task::{PaintLayer, THREAD_TINT_COLORS};
@@ -1029,31 +1030,38 @@ impl FragmentDisplayListBuilding for Fragment {
                 let height = canvas_fragment_info.replaced_image_fragment_info
                     .computed_block_size.map_or(0, |h| h.to_px() as usize);
 
-                let (sender, receiver) = channel::<Vec<u8>>();
-                let canvas_data = match canvas_fragment_info.renderer {
-                    Some(ref renderer) =>  {
-                        renderer.lock().unwrap().send(CanvasMsg::Common(CanvasCommonMsg::SendPixelContents(sender))).unwrap();
-                        receiver.recv().unwrap()
+                display_list.content.push_back(match canvas_fragment_info.renderer {
+                    Some(ref renderer) => {
+                        let (sender, receiver) = channel();
+                        renderer.lock().unwrap().send(CanvasMsg::Common(CanvasCommonMsg::SendMetadata(sender))).unwrap();
+                        let metadata = receiver.recv().unwrap();
+
+                        DisplayItem::CanvasClass(box CanvasDisplayItem {
+                            base: BaseDisplayItem::new(stacking_relative_content_box,
+                                                       DisplayItemMetadata::new(self.node,
+                                                                                &*self.style,
+                                                                                Cursor::DefaultCursor),
+                                                       (*clip).clone()),
+                            metadata: metadata,
+                        })
                     },
-                    None => repeat(0xFFu8).take(width * height * 4).collect(),
-                };
-
-                let canvas_display_item = box ImageDisplayItem {
-                    base: BaseDisplayItem::new(stacking_relative_content_box,
-                                               DisplayItemMetadata::new(self.node,
-                                                                            &*self.style,
-                                                                            Cursor::DefaultCursor),
-                                               (*clip).clone()),
-                    image: Arc::new(png::Image {
-                        width: width as u32,
-                        height: height as u32,
-                        pixels: PixelsByColorType::RGBA8(canvas_data),
-                    }),
-                    stretch_size: stacking_relative_content_box.size,
-                    image_rendering: image_rendering::T::Auto,
-                };
-
-                display_list.content.push_back(DisplayItem::ImageClass(canvas_display_item));
+                    None => {
+                        DisplayItem::ImageClass(box ImageDisplayItem {
+                            base: BaseDisplayItem::new(stacking_relative_content_box,
+                                                       DisplayItemMetadata::new(self.node,
+                                                                                &*self.style,
+                                                                                Cursor::DefaultCursor),
+                                                       (*clip).clone()),
+                            image: Arc::new(png::Image {
+                                width: width as u32,
+                                height: height as u32,
+                                pixels: PixelsByColorType::RGBA8(repeat(0xFFu8).take(width * height * 4).collect()),
+                            }),
+                            stretch_size: stacking_relative_content_box.size,
+                            image_rendering: image_rendering::T::Auto,
+                        })
+                    }
+                });
             }
             SpecificFragmentInfo::UnscannedText(_) => {
                 panic!("Shouldn't see unscanned fragments here.")

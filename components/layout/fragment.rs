@@ -1926,6 +1926,13 @@ impl Fragment {
         if self.style().get_effects().transform.is_some() {
             return true
         }
+
+        // Canvas always layerizes, see #5679
+        match self.specific {
+            SpecificFragmentInfo::Canvas(_) => return true,
+            _ => {},
+        }
+
         match self.style().get_box().position {
             position::T::absolute | position::T::fixed => {
                 // FIXME(pcwalton): This should only establish a new stacking context when

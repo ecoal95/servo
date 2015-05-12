@@ -21,6 +21,7 @@ extern crate azure;
 extern crate collections;
 extern crate geom;
 extern crate layers;
+extern crate canvas_traits;
 extern crate libc;
 extern crate stb_image;
 extern crate png;
