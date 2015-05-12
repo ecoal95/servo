@@ -12,6 +12,7 @@ extern crate util;
 extern crate url;
 extern crate style;
 extern crate webdriver_traits;
+extern crate canvas_traits;
 
 #[cfg(target_os="macos")]
 extern crate core_foundation;

@@ -21,7 +21,7 @@ use layers::platform::surface::NativeSurface;
 use layers::layers::{BufferRequest, LayerBuffer, LayerBufferSet};
 use layers;
 use msg::compositor_msg::{Epoch, PaintState, LayerId};
-use msg::compositor_msg::{LayerMetadata, PaintListener, ScrollPolicy};
+use msg::compositor_msg::{LayerMetadata, PaintListener, ScrollPolicy, TilingPolicy};
 use msg::constellation_msg::Msg as ConstellationMsg;
 use msg::constellation_msg::{ConstellationChan, Failure, PipelineId};
 use msg::constellation_msg::PipelineExitType;
@@ -36,6 +36,7 @@ use util::opts;
 use util::task::spawn_named_with_send_on_failure;
 use util::task_state;
 use util::task::spawn_named;
+use canvas_traits::CanvasMetadata;
 
 /// Information about a hardware graphics layer that layout sends to the painting task.
 #[derive(Clone)]
@@ -46,6 +47,8 @@ pub struct PaintLayer {
     pub background_color: Color,
     /// The scrolling policy of this layer.
     pub scroll_policy: ScrollPolicy,
+    /// Some optional metadata for canvas
+    pub canvas_metadata: Option<CanvasMetadata>,
 }
 
 impl PaintLayer {
@@ -55,7 +58,13 @@ impl PaintLayer {
             id: id,
             background_color: background_color,
             scroll_policy: scroll_policy,
+            canvas_metadata: None,
         }
+    }
+    /// Set the canvas metadata
+    pub fn set_canvas_metadata(&mut self, metadata: CanvasMetadata) {
+        self.canvas_metadata = Some(metadata);
+        panic!("Canvas metadata set!");
     }
 }
 
@@ -348,6 +357,12 @@ impl<C> PaintTask<C> where C: PaintListener + Send + 'static {
                 return
             };
 
+            if let Some(ref layer) = stacking_context.layer {
+                if layer.canvas_metadata.is_some() {
+                    panic!("Canvas metadata found: {:?}", layer.canvas_metadata.unwrap().surface_id);
+                }
+            }
+
             // Divide up the layer into tiles and distribute them to workers via a simple round-
             // robin strategy.
             let tiles = mem::replace(&mut tiles, Vec::new());
@@ -396,11 +411,13 @@ impl<C> PaintTask<C> where C: PaintListener + Send + 'static {
                                  overflow_relative_page_position.y.to_nearest_px() as i32),
                          Size2D(stacking_context.overflow.size.width.to_nearest_px() as i32,
                                 stacking_context.overflow.size.height.to_nearest_px() as i32));
+
                 metadata.push(LayerMetadata {
                     id: paint_layer.id,
                     position: layer_position,
                     background_color: paint_layer.background_color,
                     scroll_policy: paint_layer.scroll_policy,
+                    canvas_metadata: paint_layer.canvas_metadata,
                 })
             }
 

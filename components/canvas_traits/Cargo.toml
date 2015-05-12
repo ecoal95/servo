@@ -1,0 +1,11 @@
+[package]
+name = "canvas_traits"
+version = "0.0.1"
+authors = ["The Servo Project Developers"]
+
+[lib]
+name = "canvas_traits"
+path = "lib.rs"
+
+[dependencies.layers]
+git = "https://github.com/servo/rust-layers"

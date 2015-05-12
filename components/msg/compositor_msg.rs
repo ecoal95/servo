@@ -6,6 +6,7 @@ use azure::azure_hl::Color;
 use constellation_msg::{Key, KeyState, KeyModifiers};
 use geom::point::Point2D;
 use geom::rect::Rect;
+use canvas_traits::CanvasMetadata;
 use layers::platform::surface::NativeGraphicsMetadata;
 use layers::layers::LayerBufferSet;
 use std::fmt::{Formatter, Debug};
@@ -69,6 +70,12 @@ pub enum ScrollPolicy {
     FixedPosition,
 }
 
+#[derive(Clone, PartialEq, Eq, Copy)]
+pub enum TilingPolicy {
+    Tile,
+    NoTile
+}
+
 /// All layer-specific information that the painting task sends to the compositor other than the
 /// buffer contents of the layer itself.
 #[derive(Copy, Clone)]
@@ -81,6 +88,8 @@ pub struct LayerMetadata {
     pub background_color: Color,
     /// The scrolling policy of this layer.
     pub scroll_policy: ScrollPolicy,
+    /// Optional canvas metadata
+    pub canvas_metadata: Option<CanvasMetadata>
 }
 
 /// The interface used by the painter to acquire draw targets for each paint frame and

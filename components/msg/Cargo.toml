@@ -17,6 +17,9 @@ path = "../util"
 [dependencies.webdriver_traits]
 path = "../webdriver_traits"
 
+[dependencies.canvas_traits]
+path = "../canvas_traits"
+
 [dependencies.azure]
 git = "https://github.com/servo/rust-azure"
 

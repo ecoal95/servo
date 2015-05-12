@@ -238,7 +238,7 @@ pub trait FragmentDisplayListBuilding {
     fn create_stacking_context(&self,
                                base_flow: &BaseFlow,
                                display_list: Box<DisplayList>,
-                               layer: Option<Arc<PaintLayer>>)
+                               layer: Option<PaintLayer>)
                                -> Arc<StackingContext>;
 
 }
@@ -1075,7 +1075,7 @@ impl FragmentDisplayListBuilding for Fragment {
     fn create_stacking_context(&self,
                                base_flow: &BaseFlow,
                                display_list: Box<DisplayList>,
-                               layer: Option<Arc<PaintLayer>>)
+                               layer: Option<PaintLayer>)
                                -> Arc<StackingContext> {
 
         let border_box = self.stacking_relative_border_box(&base_flow.stacking_relative_position,
@@ -1107,6 +1107,37 @@ impl FragmentDisplayListBuilding for Fragment {
         if effects.opacity != 1.0 {
             filters.push(Filter::Opacity(effects.opacity))
         }
+
+        // NB: Canvas always layerize
+        // TODO: Refactor this
+        let layer = match self.specific {
+            SpecificFragmentInfo::Canvas(ref canvas_info) => {
+                if let Some(ref renderer) = canvas_info.renderer {
+                    let (sender, receiver) = channel();
+                    renderer.lock().unwrap().send(CanvasMsg::Common(CanvasCommonMsg::SendMetadata(sender))).unwrap();
+
+                    let metadata = receiver.recv().unwrap();
+
+                    assert!(layer.is_some());
+
+                    // let mut layer = layer.unwrap_or(Arc::new(
+                    //                                    PaintLayer::new(
+                    //                                         self.layer_id(0),
+                    //                                         color::transparent(),
+                    //                                         ScrollPolicy::Scrollable)));
+
+                    let mut layer = layer.unwrap();
+                    layer.set_canvas_metadata(metadata);
+
+                    Some(layer)
+                } else {
+                    layer
+                }
+            },
+            _ => layer
+        };
+
+        let layer = layer.map(|l| Arc::new(l));
 
         Arc::new(StackingContext::new(display_list,
                                       &border_box,
@@ -1407,9 +1438,9 @@ impl BlockFlowDisplayListBuilding for BlockFlow {
 
         let transparent = color::transparent();
         let stacking_context = self.fragment.create_stacking_context(&self.base, display_list,
-                                                                     Some(Arc::new(PaintLayer::new(self.layer_id(0),
-                                                                                                   transparent,
-                                                                                                   scroll_policy))));
+                                                                     Some(PaintLayer::new(self.layer_id(0),
+                                                                                          transparent,
+                                                                                          scroll_policy)));
         self.base.display_list_building_result =
             DisplayListBuildingResult::StackingContext(stacking_context)
     }

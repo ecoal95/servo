@@ -563,7 +563,7 @@ pub fn find_stacking_context_with_layer_id(this: &Arc<StackingContext>, layer_id
                                            -> Option<Arc<StackingContext>> {
     match this.layer {
         Some(ref layer) if layer.id == layer_id => return Some((*this).clone()),
-        Some(_) | None => {}
+        Some(_) | None => {},
     }
 
     for kid in this.display_list.children.iter() {
@@ -1102,7 +1102,8 @@ impl DisplayItem {
             }
 
             DisplayItem::CanvasClass(ref canvas_item) => {
-                paint_context.draw_surface(canvas_item.metadata.surface_id);
+                debug!("Should draw canvas at {:?}.", canvas_item.base.bounds);
+                // Nothing here, this case is treated specially
             }
 
             DisplayItem::BorderClass(ref border) => {
