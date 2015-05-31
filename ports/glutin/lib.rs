@@ -23,6 +23,7 @@ extern crate util;
 extern crate egl;
 extern crate url;
 #[cfg(target_os="linux")] extern crate x11;
+#[cfg(feature="headless")] extern crate offscreen_gl_context;
 
 use compositing::windowing::WindowEvent;
 use geom::scale_factor::ScaleFactor;

@@ -21,6 +21,9 @@ use url::Url;
 use util::cursor::Cursor;
 use util::geometry::ScreenPx;
 
+#[cfg(feature="headless")]
+use offscreen_gl_context::GLContext;
+
 use NestedEventLoopListener;
 
 #[cfg(feature = "window")]
@@ -619,8 +622,7 @@ impl WindowMethods for Window {
 /// The type of a window.
 #[cfg(feature = "headless")]
 pub struct Window {
-    #[allow(dead_code)]
-    context: glutin::HeadlessContext,
+    context: GLContext,
     width: u32,
     height: u32,
 }
@@ -631,15 +633,15 @@ impl Window {
                window_size: TypedSize2D<DevicePixel, u32>,
                _parent: glutin::WindowID) -> Rc<Window> {
         let window_size = window_size.to_untyped();
-        let headless_builder = glutin::HeadlessRendererBuilder::new(window_size.width,
-                                                                    window_size.height);
-        let headless_context = headless_builder.build().unwrap();
-        unsafe { headless_context.make_current() };
 
-        gl::load_with(|s| headless_context.get_proc_address(s));
+        gl::load_with(|s| GLContext::get_proc_address(s));
+
+        let context = GLContext::create_offscreen(size);
+
+        context.make_current().unwrap();
 
         let window = Window {
-            context: headless_context,
+            context: context,
             width: window_size.width,
             height: window_size.height,
         };
@@ -710,9 +712,7 @@ impl WindowMethods for Window {
 
     #[cfg(target_os="linux")]
     fn native_metadata(&self) -> NativeGraphicsMetadata {
-        NativeGraphicsMetadata {
-            display: ptr::null_mut()
-        }
+        self.context.get_metadata()
     }
 
     /// Helper function to handle keyboard events.

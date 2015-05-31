@@ -9,7 +9,7 @@ path = "lib.rs"
 
 [features]
 window = ["glutin/window"]
-headless = ["glutin/headless"]
+headless = ["offscreen_gl_context"]
 
 [dependencies.compositing]
 path = "../../components/compositing"
@@ -44,6 +44,10 @@ git = "https://github.com/servo/rust-cgl"
 
 [dependencies.egl]
 git = "https://github.com/servo/rust-egl"
+
+[dependencies.offscreen_gl_context]
+git = "https://github.com/ecoal95/rust-offscreen-rendering-context"
+optional = true
 
 [dependencies]
 time = "0.1.12"
