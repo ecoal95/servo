@@ -25,12 +25,8 @@ use util::cursor::Cursor;
 use util::geometry::ScreenPx;
 use gleam::gl;
 
-use egl::egl::EGLConfig;
-use egl::egl::EGLDisplay;
-use egl::egl::EGLContext;
-use egl::egl::EGLSurface;
-use egl::egl::EGLint;
-use egl::egl;
+use egl;
+use egl::types::{EGLConfig, EGLDisplay, EGLContext, EGLSurface, EGLint};
 
 use libc::size_t;
 use libc::c_void;
@@ -689,24 +685,26 @@ impl Window {
 
         let width = values[0];
         let height = values[1];
-        let dpy = egl::GetDisplay(unsafe { transmute(egl::EGL_DEFAULT_DISPLAY) });
+        let dpy = unsafe { egl::GetDisplay(transmute(egl::DEFAULT_DISPLAY)) };
 
         let ret1 = {
             let mut major: i32 = 0;
             let mut minor: i32 = 0;
-            egl::Initialize(dpy, &mut major, &mut minor)
+            unsafe {
+                egl::Initialize(dpy, &mut major, &mut minor)
+            }
         };
 
         assert!(ret1 == 1, "Failed to initialize EGL!");
 
         let conf_attr =
-            [egl::EGL_SURFACE_TYPE, egl::EGL_WINDOW_BIT,
-             egl::EGL_RENDERABLE_TYPE, egl::EGL_OPENGL_ES2_BIT,
-             egl::EGL_RED_SIZE, 8,
-             egl::EGL_GREEN_SIZE, 8,
-             egl::EGL_BLUE_SIZE, 8,
-             egl::EGL_ALPHA_SIZE, 0,
-             egl::EGL_NONE, 0];
+            [egl::SURFACE_TYPE, egl::WINDOW_BIT,
+             egl::RENDERABLE_TYPE, egl::OPENGL_ES2_BIT,
+             egl::RED_SIZE, 8,
+             egl::GREEN_SIZE, 8,
+             egl::BLUE_SIZE, 8,
+             egl::ALPHA_SIZE, 0,
+             egl::NONE, 0];
 
         let mut config: EGLConfig = unsafe { transmute(0isize) };
         let mut num_config: EGLint = 0;
@@ -722,21 +720,21 @@ impl Window {
         let eglwindow = unsafe { egl::CreateWindowSurface(dpy, config, transmute(native_window), ptr::null()) };
 
         let ctx_attr =
-            [egl::EGL_CONTEXT_CLIENT_VERSION, 2,
-             egl::EGL_NONE, 0];
+            [egl::CONTEXT_CLIENT_VERSION, 2,
+             egl::NONE, 0];
 
         let ctx = unsafe {
-            egl::CreateContext(dpy, config, transmute(egl::EGL_NO_CONTEXT), transmute(ctx_attr.as_ptr()))
+            egl::CreateContext(dpy, config, transmute(egl::NO_CONTEXT), transmute(ctx_attr.as_ptr()))
         };
 
-        if ctx == unsafe { transmute(egl::EGL_NO_CONTEXT) } { panic!("Failed to create a context!") }
+        if ctx == unsafe { transmute(egl::NO_CONTEXT) } { panic!("Failed to create a context!") }
 
         unsafe {
             autosuspend_disable();
             ((*hwc_device).blank)(hwc_device, 0, 0);
         }
 
-        let ret3 = egl::MakeCurrent(dpy, eglwindow, eglwindow, ctx);
+        let ret3 = unsafe { egl::MakeCurrent(dpy, eglwindow, eglwindow, ctx) };
 
         assert!(ret3 == 1, "Failed to make current!");
 
@@ -748,8 +746,8 @@ impl Window {
         unsafe {
             gl::ClearColor(1f32, 1f32, 1f32, 1f32);
             gl::Clear(gl::COLOR_BUFFER_BIT);
+            egl::SwapBuffers(dpy, eglwindow);
         }
-        egl::SwapBuffers(dpy, eglwindow);
 
         let (tx, rx) = channel();
 
@@ -794,7 +792,7 @@ impl WindowMethods for Window {
 
     /// Presents the window to the screen (perhaps by page flipping).
     fn present(&self) {
-        let _ = egl::SwapBuffers(self.dpy, self.surf);
+        let _ = unsafe { egl::SwapBuffers(self.dpy, self.surf) };
     }
 
     fn set_page_title(&self, _: Option<String>) {

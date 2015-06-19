@@ -4,7 +4,7 @@ version = "0.0.1"
 dependencies = [
  "compositing 0.0.1",
  "devtools 0.0.1",
- "egl 0.1.0 (git+https://github.com/servo/rust-egl)",
+ "egl 0.1.0 (git+https://github.com/ecoal95/rust-egl?branch=automatic-bindings)",
  "env_logger 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "errno 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "geom 0.1.0 (git+https://github.com/servo/rust-geom)",
@@ -219,6 +219,16 @@ dependencies = [
  "time 0.1.26 (registry+https://github.com/rust-lang/crates.io-index)",
  "url 0.2.35 (registry+https://github.com/rust-lang/crates.io-index)",
  "util 0.0.1",
+]
+
+[[package]]
+name = "egl"
+version = "0.1.0"
+source = "git+https://github.com/ecoal95/rust-egl?branch=automatic-bindings#bf2a5e8fc914f6915c2ad8614a6c3380bdbdb6c1"
+dependencies = [
+ "gl_generator 0.0.26 (registry+https://github.com/rust-lang/crates.io-index)",
+ "khronos_api 0.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

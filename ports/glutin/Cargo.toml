@@ -56,4 +56,6 @@ x11 = "*"
 cgl = "0.1"
 
 [target.arm-linux-androideabi.dependencies.egl]
-git = "https://github.com/servo/rust-egl"
+git = "https://github.com/ecoal95/rust-egl"
+branch = "automatic-bindings"
+

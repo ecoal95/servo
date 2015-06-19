@@ -590,9 +590,8 @@ impl WindowMethods for Window {
 
     #[cfg(target_os="android")]
     fn native_metadata(&self) -> NativeGraphicsMetadata {
-        use egl::egl::GetCurrentDisplay;
         NativeGraphicsMetadata {
-            display: GetCurrentDisplay(),
+            display: unsafe { egl::GetCurrentDisplay() },
         }
     }
 

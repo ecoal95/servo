@@ -49,7 +49,8 @@ path = "../../components/profile"
 path = "../../components/util"
 
 [dependencies.egl]
-git = "https://github.com/servo/rust-egl"
+git = "https://github.com/ecoal95/rust-egl"
+branch = "automatic-bindings"
 
 [dependencies.gleam]
 git = "https://github.com/servo/gleam"

@@ -248,6 +248,16 @@ dependencies = [
 [[package]]
 name = "egl"
 version = "0.1.0"
+source = "git+https://github.com/ecoal95/rust-egl?branch=automatic-bindings#bf2a5e8fc914f6915c2ad8614a6c3380bdbdb6c1"
+dependencies = [
+ "gl_generator 0.0.26 (registry+https://github.com/rust-lang/crates.io-index)",
+ "khronos_api 0.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "egl"
+version = "0.1.0"
 source = "git+https://github.com/servo/rust-egl#b21a3eafc321bd498231fcd4f4704fd90898ebf4"
 dependencies = [
  "libc 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -503,7 +513,7 @@ dependencies = [
  "bitflags 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "cgl 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "compositing 0.0.1",
- "egl 0.1.0 (git+https://github.com/servo/rust-egl)",
+ "egl 0.1.0 (git+https://github.com/ecoal95/rust-egl?branch=automatic-bindings)",
  "geom 0.1.0 (git+https://github.com/servo/rust-geom)",
  "gleam 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "glutin 0.0.26 (git+https://github.com/servo/glutin?branch=servo)",
