@@ -206,6 +206,7 @@ function runTests() {
 }
 
 function doTestNotify(name) {
+    console.log(name);
   //try {
   //  var xhr = new XMLHttpRequest();
   //  xhr.open("GET", "http://localhost:8888/"+name, true);
