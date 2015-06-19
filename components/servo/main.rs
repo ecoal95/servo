@@ -29,6 +29,8 @@ extern crate util;
 extern crate glutin_app as app;
 extern crate time;
 extern crate env_logger;
+extern crate offscreen_gl_context;
+extern crate gleam;
 
 #[cfg(target_os="android")]
 #[macro_use]
@@ -39,6 +41,7 @@ use util::opts;
 use net::resource_task;
 use servo::Browser;
 use compositing::windowing::WindowEvent;
+use gleam::gl;
 
 #[cfg(target_os="android")]
 use std::borrow::ToOwned;
@@ -54,6 +57,8 @@ fn main() {
         resource_task::global_init();
 
         let window = if opts::get().headless {
+            // Some scripts need gl loaded even in headless mode, mainly WebGL
+            gl::load_with(|s| offscreen_gl_context::GLContext::get_proc_address(s) as *const _);
             None
         } else {
             Some(app::create_window(std::ptr::null_mut()))
