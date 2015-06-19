@@ -5,6 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import os
+import time
 import re
 import subprocess
 import sys
@@ -16,6 +17,7 @@ import urlparse
 
 # Port to run the HTTP server on
 TEST_SERVER_PORT = 8192
+INITIAL_TEST_FILE = '00_test_list.txt'
 
 # The result of a single test group.
 class TestResult:
@@ -59,22 +61,33 @@ def parse_string_to_results(buffer):
         test_results[name] = test_result
     return test_results
 
+# Get all the tests from a file.
+# This recurses over all the txt files found
+def tests_from_file(file):
+    print("Opening file: {0}".format(file))
+
+    path = os.path.dirname(file)
+    if len(path) != 0:
+        path += '/'
+
+    f = open(file, 'r')
+
+    for line in f:
+        line = line.rstrip()
+        # Sometimes the test has a previous part like --min-version 1.0.x
+        # which we ignore
+        line = line.split(' ')[-1]
+        if line.endswith('.html'):
+            yield path + line
+        elif line.endswith('.txt'):
+            for test in tests_from_file(path + line):
+                yield test
 
 # Run servo and print / parse the results for a specific jQuery test module.
-def run_servo(servo_exe, module):
-    url = "http://localhost:{0}/jquery/test/?module={1}".format(TEST_SERVER_PORT, module)
+def run_servo(servo_exe, test_file):
+    url = "http://localhost:{0}/{1}".format(TEST_SERVER_PORT, test)
     args = [servo_exe, url, "-z", "-f"]
     proc = subprocess.Popen(args, stdout=subprocess.PIPE)
-    while True:
-        line = proc.stdout.readline()
-        if len(line) == 0:
-            break
-        line = line.rstrip()
-        try:
-            name, test_result = parse_line_to_result(line)
-            yield name, test_result
-        except AttributeError:
-            pass
 
 
 # Build the filename for an expected results file.
@@ -98,7 +111,7 @@ def write_results(module, results):
 
 # Print usage if command line args are incorrect
 def print_usage():
-    print("USAGE: {0} servo_binary jquery_base_dir test|update".format(sys.argv[0]))
+    print("USAGE: {0} test|update servo_binary base_dir".format(sys.argv[0]))
 
 
 # Run a simple HTTP server to serve up the jQuery test suite
@@ -161,76 +174,42 @@ def run_http_server():
         server.handle_request()
 
 if __name__ == '__main__':
-    if len(sys.argv) == 4:
-        cmd = sys.argv[1]
-        servo_exe = sys.argv[2]
-        base_dir = sys.argv[3]
-        os.chdir(base_dir)
+    if len(sys.argv) != 4:
+        print_usage()
+        sys.exit(1)
 
-        # Ensure servo binary can be found
-        if not os.path.isfile(servo_exe):
-            print("Unable to find {0}. This script expects an existing build of Servo.".format(servo_exe))
-            sys.exit(1)
+    cmd = sys.argv[1]
+    servo_exe = sys.argv[2]
+    base_dir = sys.argv[3]
+    os.chdir(base_dir)
 
-        # Start the test server
-        httpd_thread = threading.Thread(target=run_http_server)
-        httpd_thread.setDaemon(True)
-        httpd_thread.start()
+    # Ensure servo binary can be found
+    if not os.path.isfile(servo_exe):
+        print("Unable to find {0}. This script expects an existing build of Servo.".format(servo_exe))
+        sys.exit(1)
 
-        if cmd == "test":
-            print("Testing jQuery on Servo!")
-            test_count = 0
-            unexpected_count = 0
+    if not os.path.isfile(INITIAL_TEST_FILE):
+        print("Test list ({0}) not found".format(INITIAL_TEST_FILE))
+        sys.exit(1)
 
-            individual_success = 0
-            individual_total = 0
+    # Start the test server
+    httpd_thread = threading.Thread(target=run_http_server)
+    httpd_thread.setDaemon(True)
+    httpd_thread.start()
 
-            # Test each module separately
-            for module in JQUERY_MODULES:
-                print("\t{0}".format(module))
+    if cmd == "test":
+        print("Servo WebGL conformance test")
+        test_count = 0
+        unexpected_count = 0
+        individual_success = 0
+        individual_total = 0
 
-                prev_test_results = read_existing_results(module)
-                for name, current_result in run_servo(servo_exe, module):
-                    test_count += 1
-                    individual_success += current_result.success
-                    individual_total += current_result.total
-
-                    # If this test was in the previous results, compare them.
-                    if name in prev_test_results:
-                        prev_result = prev_test_results[name]
-                        if prev_result == current_result:
-                            print("\t\tOK: {0}".format(name))
-                        else:
-                            unexpected_count += 1
-                            print("\t\tFAIL: {0}: WAS {1} NOW {2}".format(name, prev_result, current_result))
-                        del prev_test_results[name]
-                    else:
-                        # There was a new test that wasn't expected
-                        unexpected_count += 1
-                        print("\t\tNEW: {0}".format(current_result.text))
-
-                # Check what's left over, these are tests that were expected but didn't run this time.
-                for name in prev_test_results:
-                    test_count += 1
-                    unexpected_count += 1
-                    print("\t\tMISSING: {0}".format(prev_test_results[name].text))
-
-            print("\tRan {0} test groups. {1} unexpected results.".format(test_count, unexpected_count))
-            print("\t{0} tests succeeded of {1} ({2:.2f}%)".format(individual_success,
-                                                                   individual_total,
-                                                                   100.0 * individual_success / individual_total))
-            if unexpected_count > 0:
-                sys.exit(1)
-        elif cmd == "update":
-            print("Updating jQuery expected results")
-            for module in JQUERY_MODULES:
-                print("\t{0}".format(module))
-                test_results = {}
-                for name, test_result in run_servo(servo_exe, module):
-                    print("\t\t{0} {1}".format(name, test_result))
-                    test_results[name] = test_result
-                write_results(module, test_results)
-        else:
-            print_usage()
+        for test in tests_from_file(INITIAL_TEST_FILE):
+            print("Testing: {0}".format(test))
+            run_servo(servo_exe, test)
+            time.sleep(1)
+    elif cmd == "update":
+        # TODO
+        print_usage()
     else:
         print_usage()
