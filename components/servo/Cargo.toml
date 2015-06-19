@@ -42,7 +42,6 @@ git = "https://github.com/servo/rust-png"
 [features]
 default = ["glutin_app", "window"]
 window = ["glutin_app/window"]
-headless = ["glutin_app/headless"]
 
 # Uncomment to profile on Linux:
 #

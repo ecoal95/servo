@@ -36,8 +36,9 @@ use std::cell::{Cell, RefCell};
 #[cfg(feature = "window")]
 use util::opts;
 
-#[cfg(all(feature = "headless", target_os="linux"))]
-use std::ptr;
+#[cfg(feature = "headless")]
+use offscreen_gl_context::{GLContext, GLContextAttributes};
+
 
 #[cfg(feature = "window")]
 static mut g_nested_event_loop_listener: Option<*mut (NestedEventLoopListener + 'static)> = None;
@@ -629,8 +630,7 @@ impl WindowMethods for Window {
 /// The type of a window.
 #[cfg(feature = "headless")]
 pub struct Window {
-    #[allow(dead_code)]
-    context: glutin::HeadlessContext,
+    context: GLContext,
     width: u32,
     height: u32,
 }
@@ -640,16 +640,21 @@ impl Window {
     pub fn new(_is_foreground: bool,
                window_size: TypedSize2D<DevicePixel, u32>,
                _parent: glutin::WindowID) -> Rc<Window> {
-        let window_size = window_size.to_untyped();
-        let headless_builder = glutin::HeadlessRendererBuilder::new(window_size.width,
-                                                                    window_size.height);
-        let headless_context = headless_builder.build().unwrap();
-        unsafe { headless_context.make_current() };
 
-        gl::load_with(|s| headless_context.get_proc_address(s));
+        let window_size = window_size.to_untyped();
+
+        if cfg!(target_os="linux") {
+            use x11::xlib;
+            unsafe { xlib::XInitThreads() };
+        }
+
+        gl::load_with(|s| GLContext::get_proc_address(s) as *const _);
+        let context = GLContext::create_offscreen(
+                        Size2D::new(window_size.width as i32, window_size.height as i32),
+                        GLContextAttributes::default()).unwrap();
 
         let window = Window {
-            context: headless_context,
+            context: context,
             width: window_size.width,
             height: window_size.height,
         };
@@ -723,11 +728,8 @@ impl WindowMethods for Window {
         true
     }
 
-    #[cfg(target_os="linux")]
     fn native_metadata(&self) -> NativeGraphicsMetadata {
-        NativeGraphicsMetadata {
-            display: ptr::null_mut()
-        }
+        self.context.get_metadata()
     }
 
     /// Helper function to handle keyboard events.

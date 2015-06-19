@@ -9,7 +9,7 @@ path = "lib.rs"
 
 [features]
 window = ["glutin/window"]
-headless = ["glutin/headless"]
+headless = ["offscreen_gl_context"]
 
 [dependencies]
 time = "0.1.12"
@@ -42,6 +42,10 @@ path = "../../components/util"
 [dependencies.glutin]
 git = "https://github.com/servo/glutin"
 branch = "servo"
+
+[dependencies.offscreen_gl_context]
+git = "https://github.com/ecoal95/rust-offscreen-rendering-context"
+optional = true
 
 [target.i686-unknown-linux-gnu.dependencies]
 x11 = "*"

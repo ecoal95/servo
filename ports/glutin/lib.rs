@@ -17,6 +17,7 @@ extern crate libc;
 extern crate msg;
 extern crate net;
 #[cfg(feature = "window")] extern crate script_traits;
+#[cfg(feature = "headless")] extern crate offscreen_gl_context;
 extern crate time;
 extern crate util;
 #[cfg(target_os="android")] extern crate egl;
