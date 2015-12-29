@@ -80,6 +80,7 @@ pub struct WebGLRenderingContext {
     texture_unpacking_settings: Cell<TextureUnpacking>,
     bound_texture_2d: MutNullableHeap<JS<WebGLTexture>>,
     bound_texture_cube_map: MutNullableHeap<JS<WebGLTexture>>,
+    current_program: MutNullableHeap<JS<WebGLProgram>>,
 }
 
 impl WebGLRenderingContext {
@@ -106,6 +107,7 @@ impl WebGLRenderingContext {
                 texture_unpacking_settings: Cell::new(CONVERT_COLORSPACE),
                 bound_texture_2d: MutNullableHeap::new(None),
                 bound_texture_cube_map: MutNullableHeap::new(None),
+                current_program: MutNullableHeap::new(None),
             }
         })
     }
@@ -942,9 +944,14 @@ impl WebGLRenderingContextMethods for WebGLRenderingContext {
                   _cx: *mut JSContext,
                   uniform: Option<&WebGLUniformLocation>,
                   data: Option<*mut JSObject>) {
-        let uniform_id = match uniform {
-            Some(uniform) => uniform.id(),
+        let uniform = match uniform {
+            Some(uniform) => uniform,
             None => return,
+        };
+
+        match self.current_program {
+            Some(program) if program.id() == uniform.program_id() => {},
+            _ => return self.webgl_error(InvalidOperation),
         };
 
         let data = match data {
@@ -966,7 +973,8 @@ impl WebGLRenderingContextMethods for WebGLRenderingContext {
     // https://www.khronos.org/registry/webgl/specs/latest/1.0/#5.14.9
     fn UseProgram(&self, program: Option<&WebGLProgram>) {
         if let Some(program) = program {
-            program.use_program()
+            program.use_program();
+            self.current_program.set(Some(program));
         }
     }
 
