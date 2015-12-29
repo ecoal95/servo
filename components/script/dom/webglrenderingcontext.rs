@@ -810,7 +810,7 @@ impl WebGLRenderingContextMethods for WebGLRenderingContext {
                           name: DOMString) -> Option<Root<WebGLUniformLocation>> {
         if let Some(program) = program {
             handle_potential_webgl_error!(self, program.get_uniform_location(name), None)
-                .map(|location| WebGLUniformLocation::new(self.global.root().r(), location))
+                .map(|location| WebGLUniformLocation::new(self.global.root().r(), location, program.id()))
         } else {
             None
         }
