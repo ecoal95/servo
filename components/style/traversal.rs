@@ -6,6 +6,7 @@ use context::{LocalStyleContext, SharedStyleContext, StyleContext};
 use dom::{OpaqueNode, TNode, TRestyleDamage, UnsafeNode};
 use matching::{ApplicableDeclarations, ElementMatchMethods, MatchMethods, StyleSharingResult};
 use selectors::bloom::BloomFilter;
+use selectors::tree::Element;
 use std::cell::RefCell;
 use std::mem;
 use std::rc::Rc;
@@ -44,10 +45,10 @@ thread_local!(
 /// If one does not exist, a new one will be made for you. If it is out of date,
 /// it will be cleared and reused.
 fn take_thread_local_bloom_filter<'ln, N>(parent_node: Option<N>,
-                                        root: OpaqueNode,
-                                        context: &SharedStyleContext)
-                                        -> Box<BloomFilter>
-                                        where N: TNode<'ln> {
+                                          root: OpaqueNode,
+                                          context: &SharedStyleContext<N::ConcreteElement>)
+                                          -> Box<BloomFilter>
+                                          where N: TNode<'ln> {
     STYLE_BLOOM.with(|style_bloom| {
         match (parent_node, style_bloom.borrow_mut().take()) {
             // Root node. Needs new bloom filter.
@@ -79,9 +80,10 @@ fn take_thread_local_bloom_filter<'ln, N>(parent_node: Option<N>,
     })
 }
 
-pub fn put_thread_local_bloom_filter(bf: Box<BloomFilter>,
-                               unsafe_node: &UnsafeNode,
-                               context: &SharedStyleContext) {
+pub fn put_thread_local_bloom_filter<E>(bf: Box<BloomFilter>,
+                                        unsafe_node: &UnsafeNode,
+                                        context: &SharedStyleContext<E>)
+                                        where E: Element {
     STYLE_BLOOM.with(move |style_bloom| {
         assert!(style_bloom.borrow().is_none(),
                 "Putting into a never-taken thread-local bloom filter");
@@ -115,17 +117,17 @@ pub trait DomTraversalContext<'ln, N: TNode<'ln>>  {
     fn process_postorder(&self, node: N);
 }
 
-pub struct StandaloneStyleContext<'a> {
-    pub shared: &'a SharedStyleContext,
+pub struct StandaloneStyleContext<'a, E: Element + 'a> {
+    pub shared: &'a SharedStyleContext<E>,
     cached_local_style_context: Rc<LocalStyleContext>,
 }
 
-impl<'a> StandaloneStyleContext<'a> {
-    pub fn new(_: &'a SharedStyleContext) -> Self { panic!("Not implemented") }
+impl<'a, E: Element> StandaloneStyleContext<'a, E> {
+    pub fn new(_: &'a SharedStyleContext<E>) -> Self { panic!("Not implemented") }
 }
 
-impl<'a> StyleContext<'a> for StandaloneStyleContext<'a> {
-    fn shared_context(&self) -> &'a SharedStyleContext {
+impl<'a, E: Element> StyleContext<'a, E> for StandaloneStyleContext<'a, E> {
+    fn shared_context(&self) -> &'a SharedStyleContext<E> {
         &self.shared
     }
 
@@ -134,18 +136,18 @@ impl<'a> StyleContext<'a> for StandaloneStyleContext<'a> {
     }
 }
 
-pub struct RecalcStyleOnly<'lc> {
-    context: StandaloneStyleContext<'lc>,
+pub struct RecalcStyleOnly<'lc, E: Element + 'lc> {
+    context: StandaloneStyleContext<'lc, E>,
     root: OpaqueNode,
 }
 
-impl<'lc, 'ln, N: TNode<'ln>> DomTraversalContext<'ln, N> for RecalcStyleOnly<'lc> {
-    type SharedContext = SharedStyleContext;
+impl<'lc, 'ln, N: TNode<'ln>> DomTraversalContext<'ln, N> for RecalcStyleOnly<'lc, N::ConcreteElement> {
+    type SharedContext = SharedStyleContext<N::ConcreteElement>;
     #[allow(unsafe_code)]
     fn new<'a>(shared: &'a Self::SharedContext, root: OpaqueNode) -> Self {
         // See the comment in RecalcStyleAndConstructFlows::new for an explanation of why this is
         // necessary.
-        let shared_lc: &'lc SharedStyleContext = unsafe { mem::transmute(shared) };
+        let shared_lc: &'lc SharedStyleContext<N::ConcreteElement> = unsafe { mem::transmute(shared) };
         RecalcStyleOnly {
             context: StandaloneStyleContext::new(shared_lc),
             root: root,
@@ -160,7 +162,9 @@ impl<'lc, 'ln, N: TNode<'ln>> DomTraversalContext<'ln, N> for RecalcStyleOnly<'l
 /// layout computation. This computes the styles applied to each node.
 #[inline]
 #[allow(unsafe_code)]
-pub fn recalc_style_at<'a, 'ln, N: TNode<'ln>, C: StyleContext<'a>> (context: &'a C, root: OpaqueNode, node: N) {
+pub fn recalc_style_at<'a, 'ln, N: TNode<'ln>, C: StyleContext<'a, N::ConcreteElement>>(context: &'a C,
+                                                                                        root: OpaqueNode,
+                                                                                        node: N) {
     // Initialize layout data.
     //
     // FIXME(pcwalton): Stop allocating here. Ideally this should just be done by the HTML

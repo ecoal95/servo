@@ -80,7 +80,7 @@ lazy_static! {
     };
 }
 
-pub struct Stylist {
+pub struct Stylist<E: Element> {
     // Device that the stylist is currently evaluating against.
     pub device: Device,
 
@@ -95,18 +95,18 @@ pub struct Stylist {
 
     // The current selector maps, after evaluating media
     // rules against the current device.
-    element_map: PerPseudoElementSelectorMap,
-    before_map: PerPseudoElementSelectorMap,
-    after_map: PerPseudoElementSelectorMap,
+    element_map: PerPseudoElementSelectorMap<E>,
+    before_map: PerPseudoElementSelectorMap<E>,
+    after_map: PerPseudoElementSelectorMap<E>,
     rules_source_order: usize,
 
     // Selector dependencies used to compute restyle hints.
     state_deps: DependencySet,
 }
 
-impl Stylist {
+impl<E: Element<Impl=ServoSelectorImpl>> Stylist<E> {
     #[inline]
-    pub fn new(device: Device) -> Stylist {
+    pub fn new(device: Device) -> Stylist<E> {
         Stylist {
             viewport_constraints: None,
             device: device,
@@ -208,15 +208,15 @@ impl Stylist {
         self.rules_source_order = rules_source_order;
     }
 
-    pub fn compute_restyle_hint<E>(&self, element: &E,
-                                   snapshot: &ElementSnapshot,
-                                   // NB: We need to pass current_state as an argument because
-                                   // selectors::Element doesn't provide access to ElementState
-                                   // directly, and computing it from the ElementState would be
-                                   // more expensive than getting it directly from the caller.
-                                   current_state: ElementState)
-                                   -> RestyleHint
-                                   where E: Element + Clone {
+    pub fn compute_restyle_hint(&self, element: &E,
+                                snapshot: &ElementSnapshot,
+                                // NB: We need to pass current_state as an argument because
+                                // selectors::Element doesn't provide access to ElementState
+                                // directly, and computing it from the ElementState would be
+                                // more expensive than getting it directly from the caller.
+                                current_state: ElementState)
+                                -> RestyleHint
+                                where E: Clone {
         self.state_deps.compute_hint(element, snapshot, current_state)
     }
 
@@ -251,7 +251,7 @@ impl Stylist {
     /// The returned boolean indicates whether the style is *shareable*; that is, whether the
     /// matched selectors are simple enough to allow the matching logic to be reduced to the logic
     /// in `css::matching::PrivateMatchMethods::candidate_element_allows_for_style_sharing`.
-    pub fn push_applicable_declarations<'le, E, V>(
+    pub fn push_applicable_declarations<'le, V>(
                                         &self,
                                         element: &E,
                                         parent_bf: Option<&BloomFilter>,
@@ -259,7 +259,7 @@ impl Stylist {
                                         pseudo_element: Option<PseudoElement>,
                                         applicable_declarations: &mut V)
                                         -> bool
-                                        where E: Element + TElement<'le>,
+                                        where E: TElement<'le>,
                                               V: VecLike<DeclarationBlock> {
         assert!(!self.is_device_dirty);
         assert!(style_attribute.is_none() || pseudo_element.is_none(),
@@ -336,14 +336,14 @@ impl Stylist {
     }
 }
 
-struct PerOriginSelectorMap {
-    normal: SelectorMap<Vec<PropertyDeclaration>>,
-    important: SelectorMap<Vec<PropertyDeclaration>>,
+struct PerOriginSelectorMap<E: Element> {
+    normal: SelectorMap<Vec<PropertyDeclaration>, E>,
+    important: SelectorMap<Vec<PropertyDeclaration>, E>,
 }
 
-impl PerOriginSelectorMap {
+impl<E: Element> PerOriginSelectorMap<E> {
     #[inline]
-    fn new() -> PerOriginSelectorMap {
+    fn new() -> PerOriginSelectorMap<E> {
         PerOriginSelectorMap {
             normal: SelectorMap::new(),
             important: SelectorMap::new(),
@@ -351,15 +351,15 @@ impl PerOriginSelectorMap {
     }
 }
 
-struct PerPseudoElementSelectorMap {
-    user_agent: PerOriginSelectorMap,
-    author: PerOriginSelectorMap,
-    user: PerOriginSelectorMap,
+struct PerPseudoElementSelectorMap<E: Element> {
+    user_agent: PerOriginSelectorMap<E>,
+    author: PerOriginSelectorMap<E>,
+    user: PerOriginSelectorMap<E>,
 }
 
-impl PerPseudoElementSelectorMap {
+impl<E: Element> PerPseudoElementSelectorMap<E> {
     #[inline]
-    fn new() -> PerPseudoElementSelectorMap {
+    fn new() -> PerPseudoElementSelectorMap<E> {
         PerPseudoElementSelectorMap {
             user_agent: PerOriginSelectorMap::new(),
             author: PerOriginSelectorMap::new(),

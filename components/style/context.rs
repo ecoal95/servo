@@ -13,14 +13,15 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex, RwLock};
+use selectors::tree::Element;
 
-pub struct StylistWrapper(pub *const Stylist);
+pub struct StylistWrapper<E: Element>(pub *const Stylist<E>);
 
 // FIXME(#6569) This implementation is unsound.
 #[allow(unsafe_code)]
-unsafe impl Sync for StylistWrapper {}
+unsafe impl<E: Element> Sync for StylistWrapper<E> {}
 
-pub struct SharedStyleContext {
+pub struct SharedStyleContext<E: Element> {
     /// The current viewport size.
     pub viewport_size: Size2D<Au>,
 
@@ -30,7 +31,7 @@ pub struct SharedStyleContext {
     /// The CSS selector stylist.
     ///
     /// FIXME(#2604): Make this no longer an unsafe pointer once we have fast `RWArc`s.
-    pub stylist: StylistWrapper,
+    pub stylist: StylistWrapper<E>,
 
     /// Starts at zero, and increased by one every time a layout completes.
     /// This can be used to easily check for invalid stale data.
@@ -58,8 +59,8 @@ pub struct LocalStyleContext {
     pub style_sharing_candidate_cache: RefCell<StyleSharingCandidateCache>,
 }
 
-pub trait StyleContext<'a> {
-    fn shared_context(&self) -> &'a SharedStyleContext;
+pub trait StyleContext<'a, E: Element> {
+    fn shared_context(&self) -> &'a SharedStyleContext<E>;
     fn local_context(&self) -> &LocalStyleContext;
 }
 

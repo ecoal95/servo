@@ -9,12 +9,13 @@ use context::SharedStyleContext;
 use data::PrivateStyleData;
 use dom::{TElement, TNode, TRestyleDamage};
 use properties::{ComputedValues, PropertyDeclaration, cascade};
+use selector_impl::NonTSPseudoClass;
 use selector_matching::{DeclarationBlock, Stylist};
 use selectors::Element;
 use selectors::bloom::BloomFilter;
 use selectors::matching::{CommonStyleAffectingAttributeMode, CommonStyleAffectingAttributes};
 use selectors::matching::{common_style_affecting_attributes, rare_style_affecting_attributes};
-use selectors::parser::PseudoElement;
+use selector_impl::PseudoElement;
 use smallvec::SmallVec;
 use std::hash::{Hash, Hasher};
 use std::slice::Iter;
@@ -246,7 +247,7 @@ impl StyleSharingCandidate {
             local_name: element.get_local_name().clone(),
             class: element.get_attr(&ns!(), &atom!("class"))
                           .map(|string| string.to_owned()),
-            link: element.is_link(),
+            link: element.match_non_ts_pseudo_class(NonTSPseudoClass::AnyLink),
             namespace: (*element.get_namespace()).clone(),
             common_style_affecting_attributes:
                    create_common_style_affecting_attributes_from_element::<'le, E>(&element)
@@ -314,7 +315,7 @@ impl StyleSharingCandidate {
             }
         }
 
-        if element.is_link() != self.link {
+        if element.match_non_ts_pseudo_class(NonTSPseudoClass::AnyLink) != self.link {
             return false
         }
 
@@ -360,17 +361,17 @@ pub enum StyleSharingResult<ConcreteRestyleDamage: TRestyleDamage> {
 }
 
 trait PrivateMatchMethods<'ln>: TNode<'ln> {
-    fn cascade_node_pseudo_element(&self,
-                                   context: &SharedStyleContext,
-                                   parent_style: Option<&Arc<ComputedValues>>,
-                                   applicable_declarations: &[DeclarationBlock],
-                                   style: &mut Option<Arc<ComputedValues>>,
-                                   applicable_declarations_cache:
-                                    &mut ApplicableDeclarationsCache,
-                                   new_animations_sender: &Mutex<Sender<Animation>>,
-                                   shareable: bool,
-                                   animate_properties: bool)
-                                   -> Self::ConcreteRestyleDamage {
+    fn cascade_node_pseudo_element<E: Element>(&self,
+                                               context: &SharedStyleContext<E>,
+                                               parent_style: Option<&Arc<ComputedValues>>,
+                                               applicable_declarations: &[DeclarationBlock],
+                                               style: &mut Option<Arc<ComputedValues>>,
+                                               applicable_declarations_cache:
+                                                &mut ApplicableDeclarationsCache,
+                                               new_animations_sender: &Mutex<Sender<Animation>>,
+                                               shareable: bool,
+                                               animate_properties: bool)
+                                               -> Self::ConcreteRestyleDamage {
         let mut cacheable = true;
         if animate_properties {
             cacheable = !self.update_animations_for_cascade(context, style) && cacheable;
@@ -433,10 +434,10 @@ trait PrivateMatchMethods<'ln>: TNode<'ln> {
         damage
     }
 
-    fn update_animations_for_cascade(&self,
-                                     context: &SharedStyleContext,
-                                     style: &mut Option<Arc<ComputedValues>>)
-                                     -> bool {
+    fn update_animations_for_cascade<E: Element>(&self,
+                                                 context: &SharedStyleContext<E>,
+                                                 style: &mut Option<Arc<ComputedValues>>)
+                                                 -> bool {
         let style = match *style {
             None => return false,
             Some(ref mut style) => style,
@@ -514,7 +515,7 @@ impl<'le, E: TElement<'le>> PrivateElementMatchMethods<'le> for E {}
 
 pub trait ElementMatchMethods<'le> : TElement<'le> {
     fn match_element(&self,
-                     stylist: &Stylist,
+                     stylist: &Stylist<Self>,
                      parent_bf: Option<&BloomFilter>,
                      applicable_declarations: &mut ApplicableDeclarations)
                      -> bool {
@@ -631,12 +632,12 @@ pub trait MatchMethods<'ln> : TNode<'ln> {
         }
     }
 
-    unsafe fn cascade_node(&self,
-                           context: &SharedStyleContext,
-                           parent: Option<Self>,
-                           applicable_declarations: &ApplicableDeclarations,
-                           applicable_declarations_cache: &mut ApplicableDeclarationsCache,
-                           new_animations_sender: &Mutex<Sender<Animation>>) {
+    unsafe fn cascade_node<E: Element>(&self,
+                                       context: &SharedStyleContext<E>,
+                                       parent: Option<Self>,
+                                       applicable_declarations: &ApplicableDeclarations,
+                                       applicable_declarations_cache: &mut ApplicableDeclarationsCache,
+                                       new_animations_sender: &Mutex<Sender<Animation>>) {
         // Get our parent's style. This must be unsafe so that we don't touch the parent's
         // borrow flags.
         //

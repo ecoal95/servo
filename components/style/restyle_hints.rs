@@ -3,10 +3,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use attr::{AttrIdentifier, AttrValue};
+use element_state::ElementState;
+use selector_impl::{NonTSPseudoClass, ServoSelectorImpl};
 use selectors::Element;
 use selectors::matching::matches_compound_selector;
 use selectors::parser::{AttrSelector, Combinator, CompoundSelector, NamespaceConstraint, SimpleSelector};
-use selectors::states::*;
 use std::clone::Clone;
 use std::sync::Arc;
 use string_cache::{Atom, Namespace};
