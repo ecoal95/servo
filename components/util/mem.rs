@@ -308,7 +308,8 @@ impl HeapSizeOf for () {
 }
 
 impl<T: SelectorImpl> HeapSizeOf for Selector<T>
-    where T::NonTSPseudoClass: HeapSizeOf {
+    where T::NonTSPseudoClass: HeapSizeOf,
+          T::PseudoElement: HeapSizeOf {
     fn heap_size_of_children(&self) -> usize {
         let &Selector { ref compound_selectors, ref pseudo_element, ref specificity } = self;
         compound_selectors.heap_size_of_children() + pseudo_element.heap_size_of_children() +
