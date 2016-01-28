@@ -308,8 +308,7 @@ impl HeapSizeOf for () {
 }
 
 impl<T: SelectorImpl> HeapSizeOf for Selector<T>
-    where T::NonTSPseudoClass: HeapSizeOf,
-          T::PseudoElement: HeapSizeOf {
+    where T::NonTSPseudoClass: HeapSizeOf {
     fn heap_size_of_children(&self) -> usize {
         let &Selector { ref compound_selectors, ref pseudo_element, ref specificity } = self;
         compound_selectors.heap_size_of_children() + pseudo_element.heap_size_of_children() +
@@ -318,8 +317,7 @@ impl<T: SelectorImpl> HeapSizeOf for Selector<T>
 }
 
 impl<T: SelectorImpl> HeapSizeOf for CompoundSelector<T>
-    where T::NonTSPseudoClass: HeapSizeOf,
-          T::PseudoElement: HeapSizeOf {
+    where T::NonTSPseudoClass: HeapSizeOf {
     fn heap_size_of_children(&self) -> usize {
         let &CompoundSelector { ref simple_selectors, ref next } = self;
         simple_selectors.heap_size_of_children() + next.heap_size_of_children()
@@ -327,8 +325,7 @@ impl<T: SelectorImpl> HeapSizeOf for CompoundSelector<T>
 }
 
 impl<T: SelectorImpl> HeapSizeOf for SimpleSelector<T>
-    where T::NonTSPseudoClass: HeapSizeOf,
-          T::PseudoElement: HeapSizeOf {
+    where T::NonTSPseudoClass: HeapSizeOf {
     fn heap_size_of_children(&self) -> usize {
         match *self {
             SimpleSelector::Negation(ref vec) => vec.heap_size_of_children(),
