@@ -100,6 +100,7 @@ pub struct Stylist<Impl: SelectorImplExt> {
     // rules against the current device.
     element_map: PerPseudoElementSelectorMap<Impl>,
     pseudos_map: HashMap<Impl::PseudoElement, PerPseudoElementSelectorMap<Impl>, BuildHasherDefault<::fnv::FnvHasher>>,
+    anon_box_pseudos: HashMap<Impl::PseudoElement, Vec<DeclarationBlock>, BuildHasherDefault<::fnv::FnvHasher>>,
     rules_source_order: usize,
 
     // Selector dependencies used to compute restyle hints.
@@ -117,6 +118,7 @@ impl<Impl: SelectorImplExt> Stylist<Impl> {
 
             element_map: PerPseudoElementSelectorMap::new(),
             pseudos_map: HashMap::with_hasher(Default::default()),
+            anon_box_pseudos: HashMap::with_hasher(Default::default()),
             rules_source_order: 0,
             state_deps: DependencySet::new(),
         };
@@ -130,7 +132,8 @@ impl<Impl: SelectorImplExt> Stylist<Impl> {
         stylist
     }
 
-    pub fn update(&mut self, doc_stylesheets: &[Arc<Stylesheet<Impl>>],
+    pub fn update(&mut self,
+                  doc_stylesheets: &[Arc<Stylesheet<Impl>>],
                   stylesheets_changed: bool) -> bool
                   where Impl: 'static {
         if !(self.is_device_dirty || stylesheets_changed) {
@@ -171,22 +174,39 @@ impl<Impl: SelectorImplExt> Stylist<Impl> {
             ($style_rule: ident, $priority: ident) => {
                 if $style_rule.declarations.$priority.len() > 0 {
                     for selector in &$style_rule.selectors {
-                        let map = if let Some(ref pseudo) = selector.pseudo_element {
-                            self.pseudos_map.entry(pseudo.clone())
-                                            .or_insert_with(PerPseudoElementSelectorMap::new)
-                                            .borrow_for_origin(&stylesheet.origin)
+                        // Anonymous box pseudo-elements don't get cascaded as usual,
+                        // their rules are just stored in a map.
+                        let maybe_map = if let Some(ref pseudo) = selector.pseudo_element {
+                            if Impl::is_anon_box_pseudo(pseudo) {
+                                println!("got anon box pseudo: {:?}", pseudo);
+                                self.anon_box_pseudos.entry(pseudo.clone())
+                                                     .or_insert(vec![])
+                                                     .push(DeclarationBlock {
+                                                         specificity: selector.specificity,
+                                                         declarations: $style_rule.declarations.$priority.clone(),
+                                                         source_order: rules_source_order,
+                                                     });
+                                None
+                            } else {
+                                Some(self.pseudos_map
+                                         .entry(pseudo.clone())
+                                         .or_insert_with(PerPseudoElementSelectorMap::new)
+                                         .borrow_for_origin(&stylesheet.origin))
+                            }
                         } else {
-                            self.element_map.borrow_for_origin(&stylesheet.origin)
+                            Some(self.element_map.borrow_for_origin(&stylesheet.origin))
                         };
 
-                        map.$priority.insert(Rule {
-                                selector: selector.compound_selectors.clone(),
-                                declarations: DeclarationBlock {
-                                    specificity: selector.specificity,
-                                    declarations: $style_rule.declarations.$priority.clone(),
-                                    source_order: rules_source_order,
-                                },
-                        });
+                        if let Some(map) = maybe_map {
+                            map.$priority.insert(Rule {
+                                    selector: selector.compound_selectors.clone(),
+                                    declarations: DeclarationBlock {
+                                        specificity: selector.specificity,
+                                        declarations: $style_rule.declarations.$priority.clone(),
+                                        source_order: rules_source_order,
+                                    },
+                            });
+                        }
                     }
                 }
             };
@@ -240,33 +260,40 @@ impl<Impl: SelectorImplExt> Stylist<Impl> {
         self.quirks_mode = enabled;
     }
 
+    pub fn anon_box_pseudo_applicable_declarations(&self,
+                                                   pseudo: &Impl::PseudoElement)
+                                                   -> Option<&[DeclarationBlock]> {
+        assert!(Impl::is_anon_box_pseudo(pseudo));
+        self.anon_box_pseudos.get(pseudo).map(|v| &**v)
+    }
+
     /// Returns the applicable CSS declarations for the given element. This corresponds to
     /// `ElementRuleCollector` in WebKit.
     ///
     /// The returned boolean indicates whether the style is *shareable*; that is, whether the
     /// matched selectors are simple enough to allow the matching logic to be reduced to the logic
     /// in `css::matching::PrivateMatchMethods::candidate_element_allows_for_style_sharing`.
-    pub fn push_applicable_declarations<'le, E, V>(
-                                        &self,
-                                        element: &E,
-                                        parent_bf: Option<&BloomFilter>,
-                                        style_attribute: Option<&PropertyDeclarationBlock>,
-                                        pseudo_element: Option<Impl::PseudoElement>,
-                                        applicable_declarations: &mut V)
-                                        -> bool
-                                        where E: Element<Impl=Impl> + TElement<'le>,
-                                              V: VecLike<DeclarationBlock> {
+    pub fn push_applicable_declarations<'le, E, V>(&self,
+                                                   element: &E,
+                                                   parent_bf: Option<&BloomFilter>,
+                                                   style_attribute: Option<&PropertyDeclarationBlock>,
+                                                   pseudo_element: Option<Impl::PseudoElement>,
+                                                   applicable_declarations: &mut V)
+                                                   -> bool
+                                                   where E: Element<Impl=Impl> + TElement<'le>,
+                                                         V: VecLike<DeclarationBlock> {
         assert!(!self.is_device_dirty);
         assert!(style_attribute.is_none() || pseudo_element.is_none(),
                 "Style attributes do not apply to pseudo-elements");
 
         let map = match pseudo_element {
-            Some(ref pseudo) => match self.pseudos_map.get(pseudo) {
-                Some(map) => map,
-                // TODO(ecoal95): get non eagerly-cascaded pseudo-element rules here.
-                // Actually assume there are no rules applicable.
-                None => return true,
-            },
+            Some(ref pseudo) => {
+                assert!(!Impl::is_anon_box_pseudo(pseudo));
+
+                self.pseudos_map
+                    .get(pseudo)
+                    .expect(&format!("Entry for pseudo-element {:?} (which is not an anonymous box one) not found.", pseudo))
+            }
             None => &self.element_map,
         };
 

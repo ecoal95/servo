@@ -20,12 +20,15 @@ pub trait SelectorImplExt : SelectorImpl + Sized {
     fn get_user_or_user_agent_stylesheets() -> &'static [Stylesheet<Self>];
 
     fn get_quirks_mode_stylesheet() -> &'static Stylesheet<Self>;
+
+    fn is_anon_box_pseudo(pseudo: &<Self as SelectorImpl>::PseudoElement) -> bool;
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, HeapSizeOf, Hash)]
 pub enum PseudoElement {
     Before,
     After,
+    Example,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, HeapSizeOf, Hash)]
@@ -97,12 +100,18 @@ impl SelectorImpl for ServoSelectorImpl {
         Ok(pseudo_class)
     }
 
-    fn parse_pseudo_element(_context: &ParserContext,
+    fn parse_pseudo_element(context: &ParserContext,
                             name: &str) -> Result<PseudoElement, ()> {
         use self::PseudoElement::*;
         let pseudo_element = match_ignore_ascii_case! { name,
             "before" => Before,
             "after" => After,
+            "-servo-example-anon-box" => {
+                if !context.in_user_agent_stylesheet {
+                    return Err(());
+                }
+                Example
+            },
             _ => return Err(())
         };
 
@@ -137,5 +146,13 @@ impl SelectorImplExt for ServoSelectorImpl {
     #[inline]
     fn get_quirks_mode_stylesheet() -> &'static Stylesheet<Self> {
         &*QUIRKS_MODE_STYLESHEET
+    }
+
+    #[inline]
+    fn is_anon_box_pseudo(pseudo: &PseudoElement) -> bool {
+        match *pseudo {
+            PseudoElement::Example => true,
+            _ => false,
+        }
     }
 }

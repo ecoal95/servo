@@ -28,5 +28,10 @@ td[align="left"]    { text-align: left; }
 td[align="center"]  { text-align: center; }
 td[align="right"]   { text-align: right; }
 
+/** Just for testing purposes */
+*|*::-servo-example-anon-box {
+  display: block !important;
+}
+
 center { text-align: -servo-center; }
 
