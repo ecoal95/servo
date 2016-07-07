@@ -43,7 +43,7 @@ use util::resource_files;
 static mut g_nested_event_loop_listener: Option<*mut (NestedEventLoopListener + 'static)> = None;
 
 bitflags! {
-    flags KeyModifiers: u8 {
+    flags KeyModifiers: u16 {
         const LEFT_CONTROL = 1,
         const RIGHT_CONTROL = 2,
         const LEFT_SHIFT = 4,
@@ -52,6 +52,7 @@ bitflags! {
         const RIGHT_ALT = 32,
         const LEFT_SUPER = 64,
         const RIGHT_SUPER = 128,
+        const COMPOSE = 256,
     }
 }
 
@@ -242,7 +243,7 @@ impl Window {
     fn handle_window_event(&self, event: glutin::Event) -> bool {
         match event {
             Event::ReceivedCharacter(ch) => {
-                assert!(self.pending_key_event_char.get().is_none());
+                println!("ReceivedCharacter: {:?} {:?}", ch, ch.is_control());
                 if !ch.is_control() {
                     self.pending_key_event_char.set(Some(ch));
                 }
@@ -257,22 +258,35 @@ impl Window {
                     VirtualKeyCode::RAlt => self.toggle_modifier(RIGHT_ALT),
                     VirtualKeyCode::LWin => self.toggle_modifier(LEFT_SUPER),
                     VirtualKeyCode::RWin => self.toggle_modifier(RIGHT_SUPER),
+                    VirtualKeyCode::Compose => self.toggle_modifier(COMPOSE),
                     _ => {}
                 }
+
+                println!("{:?}, {:?}, {:?}", element_state, scan_code, virtual_key_code);
 
                 let ch = match element_state {
                     ElementState::Pressed => {
                         // Retrieve any previosly stored ReceivedCharacter value.
                         // Store the association between the scan code and the actual
                         // character value, if there is one.
-                        let ch = self.pending_key_event_char
-                                     .get()
-                                     .and_then(|ch| filter_nonprintable(ch, virtual_key_code));
-                        self.pending_key_event_char.set(None);
-                        if let Some(ch) = ch {
-                            self.pressed_key_map.borrow_mut().push((scan_code, ch));
+                        if self.key_modifiers.get().intersects(COMPOSE) {
+                            // If we're pressing the compose key on linux, we
+                            // don't want to get the actual current key, but the
+                            // last one (the composed one), that will appear
+                            // when we either release the compose key, or when
+                            // we hit the next one that actually makes the OS to
+                            // send us the composed key.
+                            None
+                        } else {
+                            let ch = self.pending_key_event_char
+                                         .get()
+                                         .and_then(|ch| filter_nonprintable(ch, virtual_key_code));
+                            self.pending_key_event_char.set(None);
+                            if let Some(ch) = ch {
+                                self.pressed_key_map.borrow_mut().push((scan_code, ch));
+                            }
+                            ch
                         }
-                        ch
                     }
 
                     ElementState::Released => {
@@ -295,7 +309,8 @@ impl Window {
                     self.event_queue.borrow_mut().push(WindowEvent::KeyEvent(ch, key, state, modifiers));
                 }
             }
-            Event::KeyboardInput(_, _, None) => {
+            Event::KeyboardInput(element_state, scan_code, None) => {
+                println!("{:?}, {:?}, None", element_state, scan_code);
                 debug!("Keyboard input without virtual key.");
             }
             Event::Resized(width, height) => {
