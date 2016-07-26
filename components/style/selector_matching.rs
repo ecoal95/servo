@@ -313,11 +313,11 @@ impl Stylist {
                                         parent_bf: Option<&BloomFilter>,
                                         style_attribute: Option<&PropertyDeclarationBlock>,
                                         pseudo_element: Option<&PseudoElement>,
-                                        applicable_declarations: &mut V)
-                                        -> bool
-                                        where E: Element<Impl=TheSelectorImpl, AttrString=AttrString> +
-                                                 PresentationalHintsSynthetizer,
-                                              V: Push<DeclarationBlock> + VecLike<DeclarationBlock> {
+                                        applicable_declarations: &mut V) -> bool
+        where E: Element<Impl=TheSelectorImpl, AttrString=AttrString> +
+                 PresentationalHintsSynthetizer,
+              V: Push<DeclarationBlock> + VecLike<DeclarationBlock>
+    {
         assert!(!self.is_device_dirty);
         assert!(style_attribute.is_none() || pseudo_element.is_none(),
                 "Style attributes do not apply to pseudo-elements");
@@ -332,11 +332,13 @@ impl Stylist {
 
         let mut shareable = true;
 
+        debug!("Determining if style is shareable: pseudo: {}", pseudo_element.is_some());
         // Step 1: Normal user-agent rules.
         map.user_agent.normal.get_all_matching_rules(element,
                                                      parent_bf,
                                                      applicable_declarations,
                                                      &mut shareable);
+        debug!("UA normal: {}", shareable);
 
         // Step 2: Presentational hints.
         let length = applicable_declarations.len();
@@ -345,24 +347,29 @@ impl Stylist {
             // Never share style for elements with preshints
             shareable = false;
         }
+        debug!("preshints: {}", shareable);
 
         // Step 3: User and author normal rules.
         map.user.normal.get_all_matching_rules(element,
                                                parent_bf,
                                                applicable_declarations,
                                                &mut shareable);
+        debug!("user normal: {}", shareable);
         map.author.normal.get_all_matching_rules(element,
                                                  parent_bf,
                                                  applicable_declarations,
                                                  &mut shareable);
+        debug!("author normal: {}", shareable);
 
         // Step 4: Normal style attributes.
-        style_attribute.map(|sa| {
+        if let Some(ref sa)  = style_attribute {
             shareable = false;
             Push::push(
                 applicable_declarations,
-                GenericDeclarationBlock::from_declarations(sa.normal.clone()))
-        });
+                GenericDeclarationBlock::from_declarations(sa.normal.clone()));
+        }
+
+        debug!("style attr: {}", shareable);
 
         // Step 5: Author-supplied `!important` rules.
         map.author.important.get_all_matching_rules(element,
@@ -370,23 +377,34 @@ impl Stylist {
                                                     applicable_declarations,
                                                     &mut shareable);
 
+        debug!("author important: {}", shareable);
+
         // Step 6: `!important` style attributes.
-        style_attribute.map(|sa| {
+        if let Some(ref sa) = style_attribute {
             shareable = false;
             Push::push(
                 applicable_declarations,
-                GenericDeclarationBlock::from_declarations(sa.important.clone()))
-        });
+                GenericDeclarationBlock::from_declarations(sa.important.clone()));
+        }
+
+        debug!("style attr important: {}", shareable);
 
         // Step 7: User and UA `!important` rules.
         map.user.important.get_all_matching_rules(element,
                                                   parent_bf,
                                                   applicable_declarations,
                                                   &mut shareable);
+
+        debug!("user important: {}", shareable);
+
         map.user_agent.important.get_all_matching_rules(element,
                                                         parent_bf,
                                                         applicable_declarations,
                                                         &mut shareable);
+
+        debug!("UA important: {}", shareable);
+
+        debug!("push_applicable_declarations: shareable: {}", shareable);
 
         shareable
     }
