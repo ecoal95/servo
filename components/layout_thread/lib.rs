@@ -1103,7 +1103,7 @@ impl LayoutThread {
                 while let Some(node) = next {
                     if node.needs_dirty_on_viewport_size_changed() {
                         // NB: The dirty bit is propagated down the tree.
-                        node.set_dirty(true);
+                        unsafe { node.set_dirty(true); }
                         next = iter.next_skipping_children();
                     } else {
                         next = iter.next();
