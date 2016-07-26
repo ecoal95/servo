@@ -10,6 +10,7 @@ use matching::{ApplicableDeclarations, ElementMatchMethods, MatchMethods, StyleS
 use selector_impl::SelectorImplExt;
 use selectors::Element;
 use selectors::bloom::BloomFilter;
+use selectors::matching::ElementFlags;
 use std::cell::RefCell;
 use tid::tid;
 use util::opts;
@@ -205,9 +206,13 @@ pub fn recalc_style_at<'a, N, C>(context: &'a C,
 
         let sharing_result = match node.as_element() {
             Some(element) => {
-                unsafe {
-                    element.share_style_if_possible(style_sharing_candidate_cache,
-                                                    parent_opt.clone())
+                if let Some(parent) = parent_opt {
+                    unsafe {
+                        element.share_style_if_possible(style_sharing_candidate_cache,
+                                                        parent)
+                    }
+                } else {
+                    StyleSharingResult::CannotShare
                 }
             },
             None => StyleSharingResult::CannotShare,
@@ -226,9 +231,21 @@ pub fn recalc_style_at<'a, N, C>(context: &'a C,
                         // Perform the CSS selector matching.
                         let stylist = &context.shared_context().stylist;
 
-                        if element.match_element(&**stylist,
-                                                 Some(&*bf),
-                                                 &mut applicable_declarations) {
+                        // XXX probably this should be deduced from relations
+                        // here.
+                        let mut shareable = true;
+                        let relations = element.match_element(&**stylist,
+                                                              Some(&*bf),
+                                                              &mut applicable_declarations,
+                                                              &mut shareable);
+                        if !relations.is_empty() {
+                            debug!("Updating parent flags: {:?}", relations);
+                            if let Some(parent) = parent_opt.and_then(|n| n.as_element()) {
+                                parent.insert_flags(ElementFlags::from(relations));
+                            }
+                        }
+
+                        if shareable {
                             Some(element)
                         } else {
                             None

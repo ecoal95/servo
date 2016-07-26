@@ -229,6 +229,12 @@ pub trait TElement : Sized + Copy + Clone + ElementExt + PresentationalHintsSynt
             }
         }
     }
+
+    #[inline]
+    fn children_can_share_style(&self) -> bool {
+        // XXX We can probably do better than this.
+        self.get_flags().is_empty()
+    }
 }
 
 pub struct TreeIterator<ConcreteNode> where ConcreteNode: TNode {

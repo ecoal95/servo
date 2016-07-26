@@ -18,6 +18,7 @@ use selector_matching::{DeclarationBlock, Stylist};
 use selectors::Element;
 use selectors::bloom::BloomFilter;
 use selectors::matching::{CommonStyleAffectingAttributeMode, CommonStyleAffectingAttributes};
+use selectors::matching::{StyleRelations};
 use selectors::matching::{common_style_affecting_attributes, rare_style_affecting_attributes};
 use sink::ForgetfulSink;
 use smallvec::SmallVec;
@@ -54,8 +55,7 @@ pub struct ApplicableDeclarations {
     pub per_pseudo: HashMap<PseudoElement,
                             Vec<DeclarationBlock>,
                             BuildHasherDefault<::fnv::FnvHasher>>,
-
-    /// Whether the `normal` declarations are shareable with other nodes.
+    /// Whether the "normal" part of these declarations is shareable.
     pub normal_shareable: bool,
 }
 
@@ -546,14 +546,11 @@ impl<N: TNode> PrivateMatchMethods for N
 
 trait PrivateElementMatchMethods: TElement {
     fn share_style_with_candidate_if_possible(&self,
-                                              parent_node: Option<Self::ConcreteNode>,
+                                              parent_node: Self::ConcreteNode,
                                               candidate: &StyleSharingCandidate)
                                               -> Option<Arc<ComputedValues>> {
+        debug_assert!(parent_node.is_element());
         debug!("Trying to share style");
-        let parent_node = match parent_node {
-            Some(ref parent_node) if parent_node.as_element().is_some() => parent_node,
-            Some(_) | None => return None,
-        };
 
         let parent_data: Option<&PrivateStyleData> = unsafe {
             parent_node.borrow_data_unchecked().map(|d| &*d)
@@ -584,16 +581,21 @@ pub trait ElementMatchMethods : TElement {
     fn match_element(&self,
                      stylist: &Stylist,
                      parent_bf: Option<&BloomFilter>,
-                     applicable_declarations: &mut ApplicableDeclarations)
-                     -> bool {
+                     applicable_declarations: &mut ApplicableDeclarations,
+                     shareable: &mut bool) -> StyleRelations {
         let style_attribute = self.style_attribute().as_ref();
 
-        applicable_declarations.normal_shareable =
+        let relations =
             stylist.push_applicable_declarations(self,
                                                  parent_bf,
                                                  style_attribute,
                                                  None,
                                                  &mut applicable_declarations.normal);
+
+        if !relations.is_empty() {
+            applicable_declarations.normal_shareable = false;
+            *shareable = false;
+        }
 
         TheSelectorImpl::each_eagerly_cascaded_pseudo_element(|pseudo| {
             stylist.push_applicable_declarations(self,
@@ -603,12 +605,11 @@ pub trait ElementMatchMethods : TElement {
                                                  applicable_declarations.per_pseudo.entry(pseudo).or_insert(vec![]));
         });
 
-        debug!("match_element: normal_shareable: {}, pseudos: {}",
-               applicable_declarations.normal_shareable,
-               applicable_declarations.per_pseudo.values().all(|v| v.is_empty()));
+        if applicable_declarations.per_pseudo.values().any(|v| !v.is_empty()) {
+            *shareable = false;
+        }
 
-        applicable_declarations.normal_shareable &&
-        applicable_declarations.per_pseudo.values().all(|v| v.is_empty())
+        relations
     }
 
     /// Attempts to share a style with another node. This method is unsafe because it depends on
@@ -617,18 +618,31 @@ pub trait ElementMatchMethods : TElement {
     unsafe fn share_style_if_possible(&self,
                                       style_sharing_candidate_cache:
                                         &mut StyleSharingCandidateCache,
-                                      parent: Option<Self::ConcreteNode>)
+                                      parent: Self::ConcreteNode)
                                       -> StyleSharingResult<<Self::ConcreteNode as TNode>::ConcreteRestyleDamage> {
-        debug!("Trying to share style. Cache enabled: {}", opts::get().disable_share_style_cache);
+        debug!("Trying to share style. Cache enabled: {}", !opts::get().disable_share_style_cache);
+        debug_assert!(parent.is_element());
         if opts::get().disable_share_style_cache {
             return StyleSharingResult::CannotShare
         }
 
         if self.style_attribute().is_some() {
+            debug!("missing because of style attribute");
             return StyleSharingResult::CannotShare
         }
 
         if self.has_attr(&ns!(), &atom!("id")) {
+            debug!("missing because of id");
+            return StyleSharingResult::CannotShare
+        }
+
+        if !self.get_state().is_empty() {
+            debug!("missing due to non-empty state");
+            return StyleSharingResult::CannotShare
+        }
+
+        if !parent.as_element().unwrap().children_can_share_style() {
+            debug!("missing because of parent");
             return StyleSharingResult::CannotShare
         }
 
@@ -644,6 +658,7 @@ pub trait ElementMatchMethods : TElement {
             }
         }
 
+        debug!("exhaused candidate list");
         StyleSharingResult::CannotShare
     }
 }

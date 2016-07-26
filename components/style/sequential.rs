@@ -19,7 +19,7 @@ pub fn traverse_dom<N, C>(root: N,
         debug_assert!(context.should_process(node));
         context.process_preorder(node);
 
-        for kid in node.children() {
+        for kid in node.rev_children() {
             context.pre_process_child_hook(node, kid);
             if context.should_process(node) {
                 doit::<N, C>(context, kid);
@@ -34,4 +34,3 @@ pub fn traverse_dom<N, C>(root: N,
         doit::<N, C>(&context, root);
     }
 }
-

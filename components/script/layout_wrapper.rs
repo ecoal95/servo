@@ -587,8 +587,14 @@ impl<'le> ::selectors::Element for ServoLayoutElement<'le> {
         }
     }
 
+    #[inline]
     fn insert_flags(&self, flags: ElementFlags) {
         self.element.insert_atomic_flags(flags);
+    }
+
+    #[inline]
+    fn get_flags(&self) -> ElementFlags {
+        self.element.get_atomic_flags()
     }
 }
 

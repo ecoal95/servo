@@ -72,7 +72,7 @@ fn top_down_dom<N, C>(unsafe_nodes: UnsafeNodeList,
 
         // Possibly enqueue the children.
         let mut children_to_process = 0isize;
-        for kid in node.children() {
+        for kid in node.rev_children() {
             // Trigger the hook pre-adding the kid to the list. This can (and in
             // fact uses to) change the result of the should_process operation.
             //

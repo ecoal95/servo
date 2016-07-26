@@ -14,8 +14,9 @@ use restyle_hints::{RestyleHint, DependencySet};
 use selector_impl::{ElementExt, SelectorImplExt, TheSelectorImpl, PseudoElement, AttrString};
 use selectors::Element;
 use selectors::bloom::BloomFilter;
+use selectors::matching::{AFFECTED_BY_STYLE_ATTRIBUTE, AFFECTED_BY_PRESENTATIONAL_HINTS};
 use selectors::matching::DeclarationBlock as GenericDeclarationBlock;
-use selectors::matching::{Rule, SelectorMap};
+use selectors::matching::{Rule, SelectorMap, StyleRelations};
 use sink::Push;
 use smallvec::VecLike;
 use std::collections::HashMap;
@@ -313,7 +314,7 @@ impl Stylist {
                                         parent_bf: Option<&BloomFilter>,
                                         style_attribute: Option<&PropertyDeclarationBlock>,
                                         pseudo_element: Option<&PseudoElement>,
-                                        applicable_declarations: &mut V) -> bool
+                                        applicable_declarations: &mut V) -> StyleRelations
         where E: Element<Impl=TheSelectorImpl, AttrString=AttrString> +
                  PresentationalHintsSynthetizer,
               V: Push<DeclarationBlock> + VecLike<DeclarationBlock>
@@ -330,83 +331,83 @@ impl Stylist {
             None => &self.element_map,
         };
 
-        let mut shareable = true;
+        let mut relations = StyleRelations::empty();
 
         debug!("Determining if style is shareable: pseudo: {}", pseudo_element.is_some());
         // Step 1: Normal user-agent rules.
         map.user_agent.normal.get_all_matching_rules(element,
                                                      parent_bf,
                                                      applicable_declarations,
-                                                     &mut shareable);
-        debug!("UA normal: {}", shareable);
+                                                     &mut relations);
+        debug!("UA normal: {:?}", relations);
 
         // Step 2: Presentational hints.
         let length = applicable_declarations.len();
         element.synthesize_presentational_hints_for_legacy_attributes(applicable_declarations);
         if applicable_declarations.len() != length {
             // Never share style for elements with preshints
-            shareable = false;
+            relations |= AFFECTED_BY_PRESENTATIONAL_HINTS;
         }
-        debug!("preshints: {}", shareable);
+
+        debug!("preshints: {:?}", relations);
 
         // Step 3: User and author normal rules.
         map.user.normal.get_all_matching_rules(element,
                                                parent_bf,
                                                applicable_declarations,
-                                               &mut shareable);
-        debug!("user normal: {}", shareable);
+                                               &mut relations);
+        debug!("user normal: {:?}", relations);
         map.author.normal.get_all_matching_rules(element,
                                                  parent_bf,
                                                  applicable_declarations,
-                                                 &mut shareable);
-        debug!("author normal: {}", shareable);
+                                                 &mut relations);
+        debug!("author normal: {:?}", relations);
 
         // Step 4: Normal style attributes.
         if let Some(ref sa)  = style_attribute {
-            shareable = false;
+            relations |= AFFECTED_BY_STYLE_ATTRIBUTE;
             Push::push(
                 applicable_declarations,
                 GenericDeclarationBlock::from_declarations(sa.normal.clone()));
         }
 
-        debug!("style attr: {}", shareable);
+        debug!("style attr: {:?}", relations);
 
         // Step 5: Author-supplied `!important` rules.
         map.author.important.get_all_matching_rules(element,
                                                     parent_bf,
                                                     applicable_declarations,
-                                                    &mut shareable);
+                                                    &mut relations);
 
-        debug!("author important: {}", shareable);
+        debug!("author important: {:?}", relations);
 
         // Step 6: `!important` style attributes.
         if let Some(ref sa) = style_attribute {
-            shareable = false;
             Push::push(
                 applicable_declarations,
                 GenericDeclarationBlock::from_declarations(sa.important.clone()));
         }
 
-        debug!("style attr important: {}", shareable);
+        debug!("style attr important: {:?}", relations);
 
         // Step 7: User and UA `!important` rules.
         map.user.important.get_all_matching_rules(element,
                                                   parent_bf,
                                                   applicable_declarations,
-                                                  &mut shareable);
+                                                  &mut relations);
 
-        debug!("user important: {}", shareable);
+        debug!("user important: {:?}", relations);
 
         map.user_agent.important.get_all_matching_rules(element,
                                                         parent_bf,
                                                         applicable_declarations,
-                                                        &mut shareable);
+                                                        &mut relations);
 
-        debug!("UA important: {}", shareable);
+        debug!("UA important: {:?}", relations);
 
-        debug!("push_applicable_declarations: shareable: {}", shareable);
+        debug!("push_applicable_declarations: shareable: {:?}", relations);
 
-        shareable
+        relations
     }
 
     #[inline]
