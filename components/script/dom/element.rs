@@ -2675,7 +2675,7 @@ impl AtomicElementFlags {
     }
 
     fn get(&self) -> ElementFlags {
-        ElementFlags::from_bits_truncate(self.0.load(Ordering::Relaxed) as u8)
+        ElementFlags::from_bits_truncate(self.0.load(Ordering::Relaxed) as u16)
     }
 
     fn insert(&self, flags: ElementFlags) {

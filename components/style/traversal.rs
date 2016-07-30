@@ -229,9 +229,13 @@ pub fn recalc_style_at<'a, N, C>(context: &'a C,
                         // Perform the CSS selector matching.
                         let stylist = &context.shared_context().stylist;
 
-                        if element.match_element(&**stylist,
-                                                 Some(&*bf),
-                                                 &mut applicable_declarations) {
+                        let relations = element.match_element(&**stylist,
+                                                               Some(&*bf),
+                                                               &mut applicable_declarations);
+
+                        debug!("Result of selector matching: {:?}", relations);
+                        // XXXEmilio we can do way better.
+                        if relations.is_empty() {
                             Some(element)
                         } else {
                             None

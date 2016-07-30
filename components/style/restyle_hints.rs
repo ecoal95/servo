@@ -9,6 +9,7 @@ use selector_impl::{ElementExt, SelectorImplExt, TheSelectorImpl, AttrString};
 use selectors::matching::matches_compound_selector;
 use selectors::parser::{AttrSelector, Combinator, CompoundSelector, SelectorImpl, SimpleSelector};
 use selectors::{Element, MatchAttr};
+use selectors::matching::StyleRelations;
 use std::clone::Clone;
 use std::sync::Arc;
 use string_cache::{Atom, BorrowedAtom, BorrowedNamespace};
@@ -401,8 +402,8 @@ impl DependencySet {
         for dep in &self.deps {
             if state_changes.intersects(dep.sensitivities.states) || (attrs_changed && dep.sensitivities.attrs) {
                 let old_el: ElementWrapper<E> = ElementWrapper::new_with_snapshot(el.clone(), snapshot);
-                let matched_then = matches_compound_selector(&*dep.selector, &old_el, None, &mut false);
-                let matches_now = matches_compound_selector(&*dep.selector, el, None, &mut false);
+                let matched_then = matches_compound_selector(&*dep.selector, &old_el, None, &mut StyleRelations::empty());
+                let matches_now = matches_compound_selector(&*dep.selector, el, None, &mut StyleRelations::empty());
                 if matched_then != matches_now {
                     hint.insert(combinator_to_restyle_hint(dep.combinator));
                     if hint.is_all() {
