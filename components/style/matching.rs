@@ -529,14 +529,12 @@ impl<N: TNode> PrivateMatchMethods for N
 
 trait PrivateElementMatchMethods: TElement {
     fn share_style_with_candidate_if_possible(&self,
-                                              parent_node: Option<Self::ConcreteNode>,
+                                              parent_node: Self::ConcreteNode,
+                                              shared_context: &SharedStyleContext,
                                               candidate: &StyleSharingCandidate)
                                               -> Option<Arc<ComputedValues>> {
         debug!("Trying to share style");
-        let parent_node = match parent_node {
-            Some(ref parent_node) if parent_node.as_element().is_some() => parent_node,
-            Some(_) | None => return None,
-        };
+        debug_assert!(parent_node.is_element());
 
         let parent_data: Option<&PrivateStyleData> = unsafe {
             parent_node.borrow_data_unchecked().map(|d| &*d)
@@ -550,11 +548,13 @@ trait PrivateElementMatchMethods: TElement {
                 debug!("miss: Parent style didn't match");
                 return None
             }
+
             // Check tag names, classes, etc.
             if !candidate.can_share_style_with(self) {
                 debug!("miss: Unshareable style");
                 return None
             }
+
             return Some(candidate.style.clone())
         }
         None
@@ -600,9 +600,10 @@ pub trait ElementMatchMethods : TElement {
     unsafe fn share_style_if_possible(&self,
                                       style_sharing_candidate_cache:
                                         &mut StyleSharingCandidateCache,
+                                      shared_context: &SharedStyleContext,
                                       parent: Option<Self::ConcreteNode>)
                                       -> StyleSharingResult<<Self::ConcreteNode as TNode>::ConcreteRestyleDamage> {
-        debug!("Trying to share style. Cache enabled: {}", opts::get().disable_share_style_cache);
+        debug!("Trying to share style. Cache enabled: {}", !opts::get().disable_share_style_cache);
         if opts::get().disable_share_style_cache {
             return StyleSharingResult::CannotShare
         }
@@ -615,8 +616,13 @@ pub trait ElementMatchMethods : TElement {
             return StyleSharingResult::CannotShare
         }
 
+        let parent = match parent {
+            Some(parent) if parent.is_element() => parent,
+            _ => return StyleSharingResult::CannotShare,
+        };
+
         for (i, &(ref candidate, ())) in style_sharing_candidate_cache.iter().enumerate() {
-            if let Some(shared_style) = self.share_style_with_candidate_if_possible(parent.clone(), candidate) {
+            if let Some(shared_style) = self.share_style_with_candidate_if_possible(parent, shared_context, candidate) {
                 // Yay, cache hit. Share the style.
                 let node = self.as_node();
                 let style = &mut node.mutate_data().unwrap().style;

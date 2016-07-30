@@ -15,6 +15,7 @@ use selector_impl::{ElementExt, SelectorImplExt, TheSelectorImpl, PseudoElement,
 use selectors::Element;
 use selectors::bloom::BloomFilter;
 use selectors::matching::DeclarationBlock as GenericDeclarationBlock;
+use selectors::matching::Selector;
 use selectors::matching::{Rule, SelectorMap};
 use sink::Push;
 use smallvec::VecLike;
@@ -83,6 +84,9 @@ pub struct Stylist {
 
     /// Selector dependencies used to compute restyle hints.
     state_deps: DependencySet,
+
+    /// Selectors in the page affecting siblings
+    sibling_selectors: Vec<Selector<TheSelectorImpl>>,
 }
 
 impl Stylist {

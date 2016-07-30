@@ -209,6 +209,7 @@ pub fn recalc_style_at<'a, N, C>(context: &'a C,
             Some(element) => {
                 unsafe {
                     element.share_style_if_possible(style_sharing_candidate_cache,
+                                                    context.shared_context(),
                                                     parent_opt.clone())
                 }
             },

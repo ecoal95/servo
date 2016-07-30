@@ -351,7 +351,7 @@ impl DependencySet {
         DependencySet { deps: Vec::new() }
     }
 
-    pub fn note_selector(&mut self, selector: Arc<CompoundSelector<TheSelectorImpl>>) {
+    pub fn note_selector(&mut self, selector: &Arc<CompoundSelector<TheSelectorImpl>>) {
         let mut cur = selector;
         let mut combinator: Option<Combinator> = None;
         loop {
@@ -373,7 +373,7 @@ impl DependencySet {
             cur = match cur.next {
                 Some((ref sel, comb)) => {
                     combinator = Some(comb);
-                    sel.clone()
+                    sel
                 }
                 None => break,
             }
@@ -392,6 +392,9 @@ impl DependencySet {
                            -> RestyleHint
     where E: ElementExt + Clone
     {
+        debug!("About to calculate restyle hint for element. Deps: {}",
+               self.deps.len());
+
         let state_changes = snapshot.state().map_or_else(ElementState::empty, |old_state| current_state ^ old_state);
         let attrs_changed = snapshot.has_attrs();
         let mut hint = RestyleHint::empty();
