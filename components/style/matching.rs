@@ -22,6 +22,7 @@ use selectors::matching::{common_style_affecting_attributes, rare_style_affectin
 use sink::ForgetfulSink;
 use smallvec::SmallVec;
 use std::collections::HashMap;
+use std::fmt;
 use std::hash::{BuildHasherDefault, Hash, Hasher};
 use std::slice::Iter;
 use std::sync::Arc;
@@ -192,10 +193,20 @@ pub struct StyleSharingCandidate {
     pub link: bool,
 }
 
+impl fmt::Debug for StyleSharingCandidate {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        write!(formatter, "(cv: 0x{:x}, p: 0x{:x}, ln: {}, cl: {:?}, ns: {:?}, csattrs: {:?}, link: {})",
+                          &*self.style as *const _ as usize, &*self.parent_style as *const _ as usize,
+                          self.local_name, self.classes, self.namespace,
+                          self.common_style_affecting_attributes, self.link)
+    }
+}
+
 impl PartialEq for StyleSharingCandidate {
     fn eq(&self, other: &Self) -> bool {
+        debug!("Comparing style sharing candidates: {:?} {:?}", self, other);
         arc_ptr_eq(&self.style, &other.style) &&
-            arc_ptr_eq(&self.parent_style, &other.parent_style) &&
+        arc_ptr_eq(&self.parent_style, &other.parent_style) &&
             self.local_name == other.local_name &&
             self.classes == other.classes &&
             self.link == other.link &&
@@ -258,6 +269,7 @@ impl StyleSharingCandidate {
 
     pub fn can_share_style_with<E: TElement>(&self, element: &E) -> bool {
         if *element.get_local_name() != self.local_name {
+            debug!("miss: Local name didn't match with candidate");
             return false
         }
 
@@ -273,16 +285,19 @@ impl StyleSharingCandidate {
             }
         });
         if !classes_match || num_classes != self.classes.len() {
+            debug!("miss: Classes didn't match");
             return false;
         }
 
         if *element.get_namespace() != self.namespace {
+            debug!("miss: Different namespaces");
             return false
         }
 
         let mut matching_rules = ForgetfulSink::new();
         element.synthesize_presentational_hints_for_legacy_attributes(&mut matching_rules);
         if !matching_rules.is_empty() {
+            debug!("miss: presentational hints for legacy attributes present");
             return false;
         }
 
@@ -294,6 +309,7 @@ impl StyleSharingCandidate {
                 CommonStyleAffectingAttributeMode::IsPresent(flag) => {
                     if self.common_style_affecting_attributes.contains(flag) !=
                             element.has_attr(&ns!(), &attribute_info.atom) {
+                        debug!("miss: common style affecting attribute mismatch");
                         return false
                     }
                 }
@@ -301,9 +317,11 @@ impl StyleSharingCandidate {
                     let contains = self.common_style_affecting_attributes.contains(flag);
                     if element.has_attr(&ns!(), &attribute_info.atom) {
                         if !contains || !element.attr_equals(&ns!(), &attribute_info.atom, target_value) {
+                            debug!("miss: common style affecting attribute mismatch");
                             return false
                         }
                     } else if contains {
+                        debug!("miss: common style affecting attribute mismatch");
                         return false
                     }
                 }
@@ -312,16 +330,21 @@ impl StyleSharingCandidate {
 
         for attribute_name in &rare_style_affecting_attributes() {
             if element.has_attr(&ns!(), attribute_name) {
+                debug!("miss: rare style affecting attribute mismatch");
                 return false
             }
         }
 
+
+        // TODO(pcwalton): We don't support visited links yet, but when we do
+        // there will need to be some logic here.
+        //
+        // TODO(emilio): Don't disable style sharing on pseudo-classes, and just
+        // check state bits here.
         if element.is_link() != self.link {
+            debug!("miss: link mismatch");
             return false
         }
-
-        // TODO(pcwalton): We don't support visited links yet, but when we do there will need to
-        // be some logic here.
 
         true
     }
@@ -509,6 +532,7 @@ trait PrivateElementMatchMethods: TElement {
                                               parent_node: Option<Self::ConcreteNode>,
                                               candidate: &StyleSharingCandidate)
                                               -> Option<Arc<ComputedValues>> {
+        debug!("Trying to share style");
         let parent_node = match parent_node {
             Some(ref parent_node) if parent_node.as_element().is_some() => parent_node,
             Some(_) | None => return None,
@@ -518,14 +542,17 @@ trait PrivateElementMatchMethods: TElement {
             parent_node.borrow_data_unchecked().map(|d| &*d)
         };
 
+        debug!("Got parent data: {}", parent_data.is_some());
         if let Some(parent_data_ref) = parent_data {
             // Check parent style.
             let parent_style = (*parent_data_ref).style.as_ref().unwrap();
             if !arc_ptr_eq(parent_style, &candidate.parent_style) {
+                debug!("miss: Parent style didn't match");
                 return None
             }
             // Check tag names, classes, etc.
             if !candidate.can_share_style_with(self) {
+                debug!("miss: Unshareable style");
                 return None
             }
             return Some(candidate.style.clone())
@@ -550,6 +577,7 @@ pub trait ElementMatchMethods : TElement {
                                                  style_attribute,
                                                  None,
                                                  &mut applicable_declarations.normal);
+
         TheSelectorImpl::each_eagerly_cascaded_pseudo_element(|pseudo| {
             stylist.push_applicable_declarations(self,
                                                  parent_bf,
@@ -557,6 +585,10 @@ pub trait ElementMatchMethods : TElement {
                                                  Some(&pseudo.clone()),
                                                  applicable_declarations.per_pseudo.entry(pseudo).or_insert(vec![]));
         });
+
+        debug!("match_element: normal_shareable: {}, pseudos: {}",
+               applicable_declarations.normal_shareable,
+               applicable_declarations.per_pseudo.values().all(|v| v.is_empty()));
 
         applicable_declarations.normal_shareable &&
         applicable_declarations.per_pseudo.values().all(|v| v.is_empty())
@@ -570,6 +602,7 @@ pub trait ElementMatchMethods : TElement {
                                         &mut StyleSharingCandidateCache,
                                       parent: Option<Self::ConcreteNode>)
                                       -> StyleSharingResult<<Self::ConcreteNode as TNode>::ConcreteRestyleDamage> {
+        debug!("Trying to share style. Cache enabled: {}", opts::get().disable_share_style_cache);
         if opts::get().disable_share_style_cache {
             return StyleSharingResult::CannotShare
         }
@@ -577,6 +610,7 @@ pub trait ElementMatchMethods : TElement {
         if self.style_attribute().is_some() {
             return StyleSharingResult::CannotShare
         }
+
         if self.has_attr(&ns!(), &atom!("id")) {
             return StyleSharingResult::CannotShare
         }

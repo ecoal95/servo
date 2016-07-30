@@ -218,6 +218,9 @@ pub fn recalc_style_at<'a, N, C>(context: &'a C,
         // Otherwise, match and cascade selectors.
         match sharing_result {
             StyleSharingResult::CannotShare => {
+                debug!("traversal: Cache miss, el: {:?}, [hidden]: {}",
+                       node.as_element().map(|e| e.get_local_name().to_string()),
+                       node.as_element().map(|e| e.has_attr(&ns!(), &atom!("hidden"))).unwrap_or(false));
                 let mut applicable_declarations = ApplicableDeclarations::new();
 
                 let shareable_element = match node.as_element() {
@@ -250,10 +253,14 @@ pub fn recalc_style_at<'a, N, C>(context: &'a C,
 
                 // Add ourselves to the LRU cache.
                 if let Some(element) = shareable_element {
+                    debug!("Inserting element to the cache");
                     style_sharing_candidate_cache.insert_if_possible::<'ln, N>(&element);
                 }
             }
             StyleSharingResult::StyleWasShared(index, damage) => {
+                debug!("traversal: Cache hit, el: {:?}, [hidden]: {}",
+                       node.as_element().map(|e| e.get_local_name().to_string()),
+                       node.as_element().map(|e| e.has_attr(&ns!(), &atom!("hidden"))).unwrap_or(false));
                 style_sharing_candidate_cache.touch(index);
                 node.set_restyle_damage(damage);
             }
