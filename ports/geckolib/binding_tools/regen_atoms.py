@@ -39,7 +39,7 @@ class CSSPseudoElementsAtomSource:
 class CSSAnonBoxesAtomSource:
     PATTERN = re.compile('^CSS_ANON_BOX\((.+),\s*"(.*)"\)')
     FILE = "dist/include/nsCSSAnonBoxList.h"
-    CLASS = "nsGKAtoms"
+    CLASS = "nsCSSAnonBoxes"
     TYPE = "nsICSSAnonBoxPseudo"
 
     @staticmethod
@@ -168,34 +168,35 @@ PSEUDO_ELEMENT_HEADER = """
  * ```
  * fn have_to_use_pseudo_elements() {
  *     macro_rules pseudo_element! {
- *         ($pseudo_str_with_colon:expr, $pseudo_atom:expr, $is_anon_box:true) => {
+ *         ($pseudo_str_with_colon:expr, $pseudo_atom:expr, $is_anon_box:true) => {{
  *             // Stuff stuff stuff.
- *         }
+ *         }}
  *     }
  *     include!("path/to/helper.rs")
  * }
  * ```
+ *
  */
 """
 
 PSEUDO_ELEMENT_MACRO_INVOCATION = """
-pseudo_element!(\"{}\",
-                atom!(\"{}\"),
-                {});
-""".strip()
+    pseudo_element!(\"{}\",
+                    atom!(\"{}\"),
+                    {});
+"""[1:]
 
 
 def write_pseudo_element_helper(atoms, target_filename):
     with open(target_filename, "wb") as f:
         f.write(PRELUDE)
         f.write(PSEUDO_ELEMENT_HEADER)
+        f.write("{\n")
         for atom in atoms:
             if atom.get_type() == "nsICSSPseudoElement":
                 f.write(PSEUDO_ELEMENT_MACRO_INVOCATION.format(atom.value, atom.value, "false"))
-                f.write("\n")
             elif atom.get_type() == "nsICSSAnonBoxPseudo":
                 f.write(PSEUDO_ELEMENT_MACRO_INVOCATION.format(atom.value, atom.value, "true"))
-                f.write("\n")
+        f.write("}\n")
 
 
 def build(objdir, verbose=False):
