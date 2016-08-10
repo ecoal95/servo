@@ -62,34 +62,17 @@ impl PseudoElement {
     #[inline]
     fn from_atom(atom: &WeakAtom, in_ua: bool) -> Option<Self> {
         use std::slice::Iter;
-        let slice = atom.as_slice();
-        let mut iter = slice.iter();
-
-        if iter.next().map(|c| *c) != Some(':' as u16) {
-            return None
+        macro_rules! pseudo_elements {
+            ($pseudo_str_with_colon:expr, $atom:expr, $is_anon_box:expr) => {{
+                if atom == &*$atom {
+                    return Some(PseudoElement($atom, $is_anon_box));
+                }
+            }}
         }
 
-        // This type is just needed because a plain iter.map() doesn't derive
-        // Clone because the closure is not Clone.
-        #[derive(Clone)]
-        struct Utf16toASCIIIter<'a>(Iter<'a, u16>);
+        include!("generated/gecko_pseudo_element_helper.rs");
 
-        impl<'a> Iterator for Utf16toASCIIIter<'a> {
-            type Item = u8;
-
-            fn next(&mut self) -> Option<u8> {
-                self.0.next().map(|c| {
-                    if *c <= 255 {
-                        *c as u8
-                    } else {
-                        // Something that can't exist in any pseudo-element.
-                        0u8
-                    }
-                })
-            }
-        }
-
-        Self::from_bytes_iter(Utf16toASCIIIter(iter), in_ua, len)
+        None
     }
 
     #[inline]
