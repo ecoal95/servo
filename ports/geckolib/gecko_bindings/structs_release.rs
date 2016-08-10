@@ -3012,6 +3012,7 @@ pub enum BackendType {
     SKIA = 5,
     RECORDING = 6,
     DIRECT2D1_1 = 7,
+    BACKEND_LAST = 8,
 }
 #[repr(i8)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
