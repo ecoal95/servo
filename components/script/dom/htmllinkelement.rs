@@ -275,7 +275,7 @@ impl HTMLLinkElement {
         let mq_attribute = element.get_attribute(&ns!(), &local_name!("media"));
         let value = mq_attribute.r().map(|a| a.value());
         let mq_str = match value {
-            Some(ref value) => &***value,
+            Some(ref value) => value.as_string(),
             None => "",
         };
 

@@ -77,7 +77,7 @@ impl HTMLMetaElement {
     fn process_attributes(&self) {
         let element = self.upcast::<Element>();
         if let Some(name) = element.get_attribute(&ns!(), &local_name!("name")).r() {
-            let name = name.value().to_ascii_lowercase();
+            let name = name.value().as_atom().to_ascii_lowercase();
             let name = name.trim_matches(HTML_SPACE_CHARACTERS);
 
             if name == "viewport" {
@@ -96,9 +96,9 @@ impl HTMLMetaElement {
         }
         let element = self.upcast::<Element>();
         if let Some(content) = element.get_attribute(&ns!(), &local_name!("content")).r() {
-            let content = content.value();
+            let content = content.value().as_string();
             if !content.is_empty() {
-                if let Some(translated_rule) = ViewportRule::from_meta(&**content) {
+                if let Some(translated_rule) = ViewportRule::from_meta(content) {
                     let document = self.upcast::<Node>().owner_doc();
                     let shared_lock = document.style_shared_lock();
                     let rule = CssRule::Viewport(Arc::new(shared_lock.wrap(translated_rule)));
@@ -125,7 +125,7 @@ impl HTMLMetaElement {
     fn process_referrer_attribute(&self) {
         let element = self.upcast::<Element>();
         if let Some(name) = element.get_attribute(&ns!(), &local_name!("name")).r() {
-            let name = name.value().to_ascii_lowercase();
+            let name = name.value().as_atom().to_ascii_lowercase();
             let name = name.trim_matches(HTML_SPACE_CHARACTERS);
 
             if name == "referrer" {

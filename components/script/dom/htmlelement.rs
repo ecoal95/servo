@@ -557,7 +557,7 @@ impl VirtualMethods for HTMLElement {
                                                       source_line,
                                                       &name[2..],
                                                       // FIXME(ajeffrey): Convert directly from AttrValue to DOMString
-                                                      DOMString::from(&**attr.value()));
+                                                      DOMString::from(attr.value().serialize()));
             },
             _ => {}
         }
