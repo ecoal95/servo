@@ -478,7 +478,11 @@ impl Stylist {
             match *rule {
                 CssRule::Style(ref locked) => {
                     let style_rule = locked.read_with(&guard);
-                    self.num_declarations += style_rule.block.read_with(&guard).len();
+                    let declaration_count = style_rule.block.read_with(&guard).len();
+                    if declaration_count == 0 {
+                        continue;
+                    }
+                    self.num_declarations += declaration_count;
                     for selector in &style_rule.selectors.0 {
                         self.num_selectors += 1;
 
