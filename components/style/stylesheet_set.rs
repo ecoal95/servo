@@ -13,6 +13,7 @@ use stylist::Stylist;
 
 /// Entry for a StylesheetSet. We don't bother creating a constructor, because
 /// there's no sensible defaults for the member variables.
+#[cfg_attr(feature = "servo", derive(HeapSizeOf))]
 pub struct StylesheetSetEntry<S>
 where
     S: StylesheetInDocument + PartialEq + 'static,
@@ -38,6 +39,7 @@ where
 }
 
 /// The set of stylesheets effective for a given document.
+#[cfg_attr(feature = "servo", derive(HeapSizeOf))]
 pub struct StylesheetSet<S>
 where
     S: StylesheetInDocument + PartialEq + 'static,
@@ -67,6 +69,16 @@ where
             invalidation_data: Default::default(),
             author_style_disabled: false,
         }
+    }
+
+    /// Returns the number of stylesheets in the set.
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    /// Returns the number of stylesheets in the set.
+    pub fn get(&self, index: usize) -> Option<&S> {
+        self.entries.get(index).map(|s| &s.sheet)
     }
 
     /// Returns whether author styles have been disabled for the current
@@ -204,6 +216,7 @@ where
     }
 }
 
+#[cfg_attr(feature = "servo", derive(HeapSizeOf))]
 struct InvalidationData {
     /// The stylesheet invalidations for this origin that we still haven't
     /// processed.

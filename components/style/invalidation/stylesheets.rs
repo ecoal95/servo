@@ -21,6 +21,7 @@ use stylist::Stylist;
 /// An invalidation scope represents a kind of subtree that may need to be
 /// restyled.
 #[derive(Debug, Hash, Eq, PartialEq)]
+#[cfg_attr(feature = "servo", derive(HeapSizeOf))]
 enum InvalidationScope {
     /// All the descendants of an element with a given id.
     ID(Atom),
@@ -54,6 +55,7 @@ impl InvalidationScope {
 ///
 /// TODO(emilio): We might be able to do the same analysis for removals and
 /// media query changes too?
+#[cfg_attr(feature = "servo", derive(HeapSizeOf))]
 pub struct StylesheetInvalidationSet {
     /// The style scopes we know we have to restyle so far.
     invalid_scopes: FnvHashSet<InvalidationScope>,
