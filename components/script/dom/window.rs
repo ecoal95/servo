@@ -1233,7 +1233,9 @@ impl Window {
         }
 
         let document = self.Document();
-        let stylesheets_changed = document.get_and_reset_stylesheets_changed_since_reflow();
+
+        let (document_stylesheets, stylesheets_changed) =
+            document.flush_stylesheets_for_reflow();
 
         // Send new document and relevant styles to layout.
         let reflow = ScriptReflow {
@@ -1242,11 +1244,11 @@ impl Window {
                 page_clip_rect: self.page_clip_rect.get(),
             },
             document: self.Document().upcast::<Node>().to_trusted_node_address(),
-            document_stylesheets: document.stylesheets(),
-            stylesheets_changed: stylesheets_changed,
-            window_size: window_size,
+            document_stylesheets,
+            stylesheets_changed,
+            window_size,
+            query_type,
             script_join_chan: join_chan,
-            query_type: query_type,
             dom_count: self.Document().dom_count(),
         };
 

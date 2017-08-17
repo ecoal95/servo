@@ -6,10 +6,10 @@
 
 use dom::TElement;
 use invalidation::stylesheets::StylesheetInvalidationSet;
+use media_queries::Device;
 use shared_lock::SharedRwLockReadGuard;
 use std::slice;
 use stylesheets::{OriginSet, PerOrigin, StylesheetInDocument};
-use stylist::Stylist;
 
 /// Entry for a StylesheetSet. We don't bother creating a constructor, because
 /// there's no sensible defaults for the member variables.
@@ -93,46 +93,57 @@ where
 
     fn collect_invalidations_for(
         &mut self,
-        stylist: &Stylist,
+        device: Option<&Device>,
         sheet: &S,
         guard: &SharedRwLockReadGuard,
     ) {
         let origin = sheet.contents(guard).origin;
         let data = self.invalidation_data.borrow_mut_for_origin(&origin);
-        data.invalidations.collect_invalidations_for(stylist, sheet, guard);
+        if let Some(device) = device {
+            data.invalidations.collect_invalidations_for(device, sheet, guard);
+        }
         data.dirty = true;
     }
 
     /// Appends a new stylesheet to the current set.
+    ///
+    /// FIXME(emilio): `device` shouldn't be optional, but a bunch of work needs
+    /// to happen to make the invalidations work properly in servo.
     pub fn append_stylesheet(
         &mut self,
-        stylist: &Stylist,
+        device: Option<&Device>,
         sheet: S,
         guard: &SharedRwLockReadGuard
     ) {
         debug!("StylesheetSet::append_stylesheet");
         self.remove_stylesheet_if_present(&sheet);
-        self.collect_invalidations_for(stylist, &sheet, guard);
+        self.collect_invalidations_for(device, &sheet, guard);
         self.entries.push(StylesheetSetEntry { sheet });
     }
 
     /// Prepend a new stylesheet to the current set.
+    ///
+    /// FIXME(emilio): `device` shouldn't be optional, but a bunch of work needs
+    /// to happen to make the invalidations work properly in servo.
     pub fn prepend_stylesheet(
         &mut self,
-        stylist: &Stylist,
+        device: Option<&Device>,
         sheet: S,
         guard: &SharedRwLockReadGuard
     ) {
         debug!("StylesheetSet::prepend_stylesheet");
         self.remove_stylesheet_if_present(&sheet);
-        self.collect_invalidations_for(stylist, &sheet, guard);
+        self.collect_invalidations_for(device, &sheet, guard);
         self.entries.insert(0, StylesheetSetEntry { sheet });
     }
 
     /// Insert a given stylesheet before another stylesheet in the document.
+    ///
+    /// FIXME(emilio): `device` shouldn't be optional, but a bunch of work needs
+    /// to happen to make the invalidations work properly in servo.
     pub fn insert_stylesheet_before(
         &mut self,
-        stylist: &Stylist,
+        device: Option<&Device>,
         sheet: S,
         before_sheet: S,
         guard: &SharedRwLockReadGuard
@@ -142,20 +153,23 @@ where
         let index = self.entries.iter().position(|entry| {
             entry.sheet == before_sheet
         }).expect("`before_sheet` stylesheet not found");
-        self.collect_invalidations_for(stylist, &sheet, guard);
+        self.collect_invalidations_for(device, &sheet, guard);
         self.entries.insert(index, StylesheetSetEntry { sheet });
     }
 
     /// Remove a given stylesheet from the set.
+    ///
+    /// FIXME(emilio): `device` shouldn't be optional, but a bunch of work needs
+    /// to happen to make the invalidations work properly in servo.
     pub fn remove_stylesheet(
         &mut self,
-        stylist: &Stylist,
+        device: Option<&Device>,
         sheet: S,
         guard: &SharedRwLockReadGuard,
     ) {
         debug!("StylesheetSet::remove_stylesheet");
         self.remove_stylesheet_if_present(&sheet);
-        self.collect_invalidations_for(stylist, &sheet, guard);
+        self.collect_invalidations_for(device, &sheet, guard);
     }
 
     /// Notes that the author style has been disabled for this document.
@@ -192,6 +206,27 @@ where
         for (data, origin) in self.invalidation_data.iter_mut_origins() {
             if data.dirty {
                 data.invalidations.flush(document_element);
+                data.dirty = false;
+                origins |= origin;
+            }
+        }
+
+        (self.iter(), origins)
+    }
+
+    /// Flush stylesheets, but without running any of the invalidation passes.
+    ///
+    /// FIXME(emilio): This should eventually disappear. Please keep this
+    /// Servo-only.
+    #[cfg(feature = "servo")]
+    pub fn flush_without_invalidation(&mut self) -> (StylesheetIterator<S>, OriginSet) {
+        debug!("StylesheetSet::flush_without_invalidation");
+        debug_assert!(self.has_changed());
+
+        let mut origins = OriginSet::empty();
+        for (data, origin) in self.invalidation_data.iter_mut_origins() {
+            if data.dirty {
+                data.invalidations.clear();
                 data.dirty = false;
                 origins |= origin;
             }

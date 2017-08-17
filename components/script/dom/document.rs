@@ -136,7 +136,7 @@ use std::time::{Duration, Instant};
 use style::attr::AttrValue;
 use style::context::{QuirksMode, ReflowGoal};
 use style::invalidation::element::restyle_hints::{RestyleHint, RESTYLE_SELF, RESTYLE_STYLE_ATTRIBUTE};
-use style::media_queries::MediaList;
+use style::media_queries::{Device, MediaList, MediaType};
 use style::selector_parser::{RestyleDamage, Snapshot};
 use style::shared_lock::SharedRwLockReadGuard;
 use style::shared_lock::SharedRwLock as StyleSharedRwLock;
@@ -2340,28 +2340,65 @@ impl Document {
     }
 
     /// Returns the list of stylesheets associated with nodes in the document.
-    pub fn stylesheets(&self) -> Vec<Arc<Stylesheet>> {
-        // FIXME
-        vec![]
+    pub fn flush_stylesheets_for_reflow(&self) -> (Vec<Arc<Stylesheet>>, bool) {
+        // FIXME(emilio): This can use better invalidation when:
+        //
+        //  * We implement TElement in the normal DOM, or something like that.
+        //  * We move Stylist here.
+        //
+        let mut stylesheets = self.stylesheets.borrow_mut();
+        let have_changed = stylesheets.has_changed();
+        let sheets = if have_changed {
+            stylesheets.flush_without_invalidation().0
+                .map(|s| s.sheet.clone()).collect()
+        } else {
+            stylesheets.iter()
+                .map(|s| s.sheet.clone()).collect()
+        };
+
+        (sheets, have_changed)
+    }
+
+    /// Returns a `Device` suitable for media query evaluation.
+    ///
+    /// FIXME(emilio): This really needs to be somehow more in sync with layout.
+    /// Feels like a hack.
+    ///
+    /// Also, shouldn't return an option, I'm quite sure.
+    pub fn device(&self) -> Option<Device> {
+        let window_size = match self.window().window_size() {
+            Some(ws) => ws,
+            None => return None,
+        };
+
+        let viewport_size = window_size.initial_viewport;
+        let device_pixel_ratio = window_size.device_pixel_ratio;
+        Some(Device::new(MediaType::screen(), viewport_size, device_pixel_ratio))
     }
 
     /// Remove a stylesheet owned by `owner` from the list of document sheets.
     #[allow(unrooted_must_root)] // Owner needs to be rooted already necessarily.
     pub fn remove_stylesheet(&self, owner: &Element, s: &Arc<Stylesheet>) {
-        // FIXME(emilio): Would be nice to remove the clone, etc.
         let lock = self.style_shared_lock();
         let guard = lock.read();
+        let device = self.device();
 
-        let stylist = loop {};
-
+        // FIXME(emilio): Would be nice to remove the clone, etc.
+        //
+        // FIXME(emilio): The `device` right now is useless, since we call
+        // `flush_without_invalidations`, but I want to keep it.
         self.stylesheets.borrow_mut().remove_stylesheet(
-            &stylist,
+            device.as_ref(),
             StyleSheetInDocument {
                 sheet: s.clone(),
                 owner: JS::from_ref(owner),
             },
             &guard,
         );
+
+        // FIXME(emilio): This call can go away once we make the fancy
+        // invalidations work for Servo.
+        self.invalidate_stylesheets();
     }
 
     /// Add a stylesheet owned by `owner` to the list of document sheets, in the
@@ -2388,16 +2425,19 @@ impl Document {
         let lock = self.style_shared_lock();
         let guard = lock.read();
 
-        // FIXME
-        let stylist = loop {};
+        let device = self.device();
         match insertion_point {
             Some(ip) => {
-                stylesheets.insert_stylesheet_before(stylist, sheet, ip, &guard);
+                stylesheets.insert_stylesheet_before(device.as_ref(), sheet, ip, &guard);
             }
             None => {
-                stylesheets.append_stylesheet(stylist, sheet, &guard);
+                stylesheets.append_stylesheet(device.as_ref(), sheet, &guard);
             }
         }
+
+        // FIXME(emilio): This call can go away once we make the fancy
+        // invalidations work for Servo.
+        self.invalidate_stylesheets();
     }
 
     /// Returns the number of document stylesheets.
