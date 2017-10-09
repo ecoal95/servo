@@ -13,7 +13,6 @@ use properties::{CSSWideKeyword, DeclaredValue};
 use selector_map::{PrecomputedHashSet, PrecomputedHashMap, PrecomputedDiagnosticHashMap};
 use selectors::parser::SelectorParseError;
 use servo_arc::Arc;
-use smallvec::SmallVec;
 use std::ascii::AsciiExt;
 use std::borrow::{Borrow, Cow};
 use std::fmt;
@@ -533,69 +532,15 @@ impl<'a> CustomPropertiesBuilder<'a> {
         };
 
         if self.may_have_cycles {
-            remove_cycles(&mut map);
-            substitute_all(&mut map);
+            substitute_all_and_remove_cycles(&mut map);
         }
         Some(Arc::new(map))
     }
 }
 
-/// https://drafts.csswg.org/css-variables/#cycles
-///
-/// The initial value of a custom property is represented by this property not
-/// being in the map.
-fn remove_cycles(map: &mut CustomPropertiesMap) {
-    let mut to_remove = PrecomputedHashSet::default();
-    {
-        type VisitedNamesStack<'a> = SmallVec<[&'a Name; 10]>;
-
-        let mut visited = PrecomputedHashSet::default();
-        let mut stack = VisitedNamesStack::new();
-        for (name, value) in map.iter() {
-            walk(map, name, value, &mut stack, &mut visited, &mut to_remove);
-
-            fn walk<'a>(
-                map: &'a CustomPropertiesMap,
-                name: &'a Name,
-                value: &'a Arc<VariableValue>,
-                stack: &mut VisitedNamesStack<'a>,
-                visited: &mut PrecomputedHashSet<&'a Name>,
-                to_remove: &mut PrecomputedHashSet<Name>,
-            ) {
-                if value.references.is_empty() {
-                    return;
-                }
-
-                let already_visited_before = !visited.insert(name);
-                if already_visited_before {
-                    return
-                }
-
-                stack.push(name);
-                for next in value.references.iter() {
-                    if let Some(position) = stack.iter().position(|x| *x == next) {
-                        // Found a cycle
-                        for &in_cycle in &stack[position..] {
-                            to_remove.insert(in_cycle.clone());
-                        }
-                    } else {
-                        if let Some(value) = map.get(next) {
-                            walk(map, next, value, stack, visited, to_remove);
-                        }
-                    }
-                }
-                stack.pop();
-            }
-        }
-    }
-
-    for name in to_remove {
-        map.remove(&name);
-    }
-}
-
-/// Replace `var()` functions for all custom properties.
-fn substitute_all(custom_properties_map: &mut CustomPropertiesMap) {
+/// Replace `var()` functions for all custom properties, and removes properties
+/// that turn out to be cyclic.
+fn substitute_all_and_remove_cycles(custom_properties_map: &mut CustomPropertiesMap) {
     // FIXME(emilio): This stash is needed because we can't prove statically to
     // rustc that we don't try to mutate the same variable from two recursive
     // `substitute_one` calls.
@@ -604,6 +549,7 @@ fn substitute_all(custom_properties_map: &mut CustomPropertiesMap) {
     // guess...
     let mut stash = PrecomputedHashMap::default();
     let mut invalid = PrecomputedHashSet::default();
+    let mut cycle_start_points = PrecomputedHashSet::default();
 
     for (name, value) in custom_properties_map.iter() {
         if !value.references.is_empty() && !stash.contains_key(name) {
@@ -614,7 +560,9 @@ fn substitute_all(custom_properties_map: &mut CustomPropertiesMap) {
                 None,
                 &mut stash,
                 &mut invalid,
+                &mut cycle_start_points,
             );
+            cycle_start_points.clear();
         }
     }
 
@@ -644,11 +592,17 @@ fn substitute_one(
     partial_computed_value: Option<&mut VariableValue>,
     stash: &mut PrecomputedHashMap<Name, Arc<VariableValue>>,
     invalid: &mut PrecomputedHashSet<Name>,
+    cycle_start_points: &mut PrecomputedHashSet<Name>,
 ) -> Result<TokenSerializationType, ()> {
     debug_assert!(!specified_value.references.is_empty());
     debug_assert!(!stash.contains_key(name));
 
     if invalid.contains(name) {
+        return Err(());
+    }
+
+    if !cycle_start_points.insert(name.clone()) {
+        invalid.insert(name.clone());
         return Err(());
     }
 
@@ -683,7 +637,8 @@ fn substitute_one(
                 custom_properties,
                 Some(partial_computed_value),
                 stash,
-                invalid
+                invalid,
+                cycle_start_points,
             )
         }
     );
@@ -704,6 +659,7 @@ fn substitute_one(
 
     let last_token_type = computed_value.last_token_type;
     stash.insert(name.clone(), Arc::new(computed_value));
+    cycle_start_points.remove(name);
 
     Ok(last_token_type)
 }
