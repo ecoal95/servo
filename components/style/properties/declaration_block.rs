@@ -154,22 +154,28 @@ impl<'a> Iterator for NormalDeclarationIterator<'a> {
 }
 
 /// Iterator for AnimationValue to be generated from PropertyDeclarationBlock.
-pub struct AnimationValueIterator<'a, 'cx, 'cx_a:'cx> {
+pub struct AnimationValueIterator<'a, 'cx, 'cx_a: 'cx, E>
+where
+    E: ::dom::TElement,
+{
     iter: NormalDeclarationIterator<'a>,
-    context: &'cx mut Context<'cx_a>,
+    context: &'cx mut Context<'cx_a, E>,
     default_values: &'a ComputedValues,
     /// Custom properties in a keyframe if exists.
     extra_custom_properties: Option<&'a Arc<::custom_properties::CustomPropertiesMap>>,
 }
 
-impl<'a, 'cx, 'cx_a:'cx> AnimationValueIterator<'a, 'cx, 'cx_a> {
+impl<'a, 'cx, 'cx_a: 'cx, E> AnimationValueIterator<'a, 'cx, 'cx_a, E>
+where
+    E: ::dom::TElement,
+{
     fn new(
         declarations: &'a PropertyDeclarationBlock,
-        context: &'cx mut Context<'cx_a>,
+        context: &'cx mut Context<'cx_a, E>,
         default_values: &'a ComputedValues,
         extra_custom_properties: Option<&'a Arc<::custom_properties::CustomPropertiesMap>>,
-    ) -> AnimationValueIterator<'a, 'cx, 'cx_a> {
-        AnimationValueIterator {
+    ) -> Self {
+        Self {
             iter: declarations.normal_declaration_iter(),
             context,
             default_values,
@@ -261,12 +267,15 @@ impl PropertyDeclarationBlock {
 
     /// Return an iterator of (AnimatableLonghand, AnimationValue).
     #[inline]
-    pub fn to_animation_value_iter<'a, 'cx, 'cx_a:'cx>(
+    pub fn to_animation_value_iter<'a, 'cx, 'cx_a: 'cx, E>(
         &'a self,
-        context: &'cx mut Context<'cx_a>,
+        context: &'cx mut Context<'cx_a, E>,
         default_values: &'a ComputedValues,
         extra_custom_properties: Option<&'a Arc<::custom_properties::CustomPropertiesMap>>,
-    ) -> AnimationValueIterator<'a, 'cx, 'cx_a> {
+    ) -> AnimationValueIterator<'a, 'cx, 'cx_a, E>
+    where
+        E: ::dom::TElement,
+    {
         AnimationValueIterator::new(self, context, default_values, extra_custom_properties)
     }
 
@@ -728,10 +737,13 @@ impl PropertyDeclarationBlock {
     /// Returns a custom properties map which is the result of cascading custom
     /// properties in this declaration block along with context's custom
     /// properties.
-    pub fn cascade_custom_properties_with_context(
+    pub fn cascade_custom_properties_with_context<E>(
         &self,
-        context: &Context,
-    ) -> Option<Arc<::custom_properties::CustomPropertiesMap>> {
+        context: &Context<E>,
+    ) -> Option<Arc<::custom_properties::CustomPropertiesMap>>
+    where
+        E: ::dom::TElement,
+    {
         self.cascade_custom_properties(context.style().custom_properties())
     }
 

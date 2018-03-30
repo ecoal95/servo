@@ -330,7 +330,10 @@ impl<A, B> ToComputedValue for (A, B)
     );
 
     #[inline]
-    fn to_computed_value(&self, context: &Context) -> Self::ComputedValue {
+    fn to_computed_value<E>(&self, context: &Context<E>) -> Self::ComputedValue
+    where
+        E: TElement,
+    {
         (self.0.to_computed_value(context), self.1.to_computed_value(context))
     }
 
@@ -346,7 +349,10 @@ impl<T> ToComputedValue for Option<T>
     type ComputedValue = Option<<T as ToComputedValue>::ComputedValue>;
 
     #[inline]
-    fn to_computed_value(&self, context: &Context) -> Self::ComputedValue {
+    fn to_computed_value<E>(&self, context: &Context<E>) -> Self::ComputedValue
+    where
+        E: TElement,
+    {
         self.as_ref().map(|item| item.to_computed_value(context))
     }
 
@@ -362,7 +368,10 @@ impl<T> ToComputedValue for Size2D<T>
     type ComputedValue = Size2D<<T as ToComputedValue>::ComputedValue>;
 
     #[inline]
-    fn to_computed_value(&self, context: &Context) -> Self::ComputedValue {
+    fn to_computed_value<E>(&self, context: &Context<E>) -> Self::ComputedValue
+    where
+        E: TElement,
+    {
         Size2D::new(
             self.width.to_computed_value(context),
             self.height.to_computed_value(context),
@@ -384,7 +393,10 @@ impl<T> ToComputedValue for Vec<T>
     type ComputedValue = Vec<<T as ToComputedValue>::ComputedValue>;
 
     #[inline]
-    fn to_computed_value(&self, context: &Context) -> Self::ComputedValue {
+    fn to_computed_value<E>(&self, context: &Context<E>) -> Self::ComputedValue
+    where
+        E: TElement,
+    {
         self.iter().map(|item| item.to_computed_value(context)).collect()
     }
 
@@ -400,7 +412,10 @@ impl<T> ToComputedValue for Box<T>
     type ComputedValue = Box<<T as ToComputedValue>::ComputedValue>;
 
     #[inline]
-    fn to_computed_value(&self, context: &Context) -> Self::ComputedValue {
+    fn to_computed_value<E>(&self, context: &Context<E>) -> Self::ComputedValue
+    where
+        E: TElement,
+    {
         Box::new(T::to_computed_value(self, context))
     }
 
@@ -416,7 +431,10 @@ impl<T> ToComputedValue for Box<[T]>
     type ComputedValue = Box<[<T as ToComputedValue>::ComputedValue]>;
 
     #[inline]
-    fn to_computed_value(&self, context: &Context) -> Self::ComputedValue {
+    fn to_computed_value<E>(&self, context: &Context<E>) -> Self::ComputedValue
+    where
+        E: TElement,
+    {
         self.iter().map(|item| item.to_computed_value(context)).collect::<Vec<_>>().into_boxed_slice()
     }
 
@@ -505,6 +523,7 @@ impl From<GreaterThanOrEqualToOneNumber> for CSSFloat {
     }
 }
 
+// TODO(emilio): This should be generic and derive ToComputedValue.
 #[allow(missing_docs)]
 #[derive(Clone, ComputeSquaredDistance, Copy, Debug, MallocSizeOf, PartialEq, ToCss)]
 pub enum NumberOrPercentage {
@@ -516,7 +535,10 @@ impl ToComputedValue for specified::NumberOrPercentage {
     type ComputedValue = NumberOrPercentage;
 
     #[inline]
-    fn to_computed_value(&self, context: &Context) -> NumberOrPercentage {
+    fn to_computed_value<E>(&self, context: &Context<E>) -> Self::ComputedValue
+    where
+        E: TElement,
+    {
         match *self {
             specified::NumberOrPercentage::Percentage(percentage) =>
                 NumberOrPercentage::Percentage(percentage.to_computed_value(context)),

@@ -27,7 +27,10 @@ impl ToComputedValue for specified::NoCalcLength {
     type ComputedValue = CSSPixelLength;
 
     #[inline]
-    fn to_computed_value(&self, context: &Context) -> Self::ComputedValue {
+    fn to_computed_value<E>(&self, context: &Context<E>) -> Self::ComputedValue
+    where
+        E: ::dom::TElement,
+    {
         match *self {
             specified::NoCalcLength::Absolute(length) =>
                 length.to_computed_value(context),
@@ -49,8 +52,10 @@ impl ToComputedValue for specified::NoCalcLength {
 impl ToComputedValue for specified::Length {
     type ComputedValue = CSSPixelLength;
 
-    #[inline]
-    fn to_computed_value(&self, context: &Context) -> Self::ComputedValue {
+    fn to_computed_value<E>(&self, context: &Context<E>) -> Self::ComputedValue
+    where
+        E: ::dom::TElement,
+    {
         match *self {
             specified::Length::NoCalc(l) => l.to_computed_value(context),
             specified::Length::Calc(ref calc) => calc.to_computed_value(context).length(),
@@ -228,14 +233,15 @@ impl ToCss for CalcLengthOrPercentage {
 
 impl specified::CalcLengthOrPercentage {
     /// Compute the value, zooming any absolute units by the zoom function.
-    fn to_computed_value_with_zoom<F>(
+    fn to_computed_value_with_zoom<F, E>(
         &self,
-        context: &Context,
+        context: &Context<E>,
         zoom_fn: F,
         base_size: FontBaseSize,
     ) -> CalcLengthOrPercentage
     where
         F: Fn(Length) -> Length,
+        E: ::dom::TElement,
     {
         use std::f32;
         let mut length = 0.;
@@ -271,11 +277,14 @@ impl specified::CalcLengthOrPercentage {
     }
 
     /// Compute font-size or line-height taking into account text-zoom if necessary.
-    pub fn to_computed_value_zoomed(
+    pub fn to_computed_value_zoomed<E>(
         &self,
-        context: &Context,
+        context: &Context<E>,
         base_size: FontBaseSize,
-    ) -> CalcLengthOrPercentage {
+    ) -> CalcLengthOrPercentage
+    where
+        E: ::dom::TElement,
+    {
         self.to_computed_value_with_zoom(context, |abs| context.maybe_zoom_text(abs.into()).0, base_size)
     }
 
@@ -301,7 +310,10 @@ impl specified::CalcLengthOrPercentage {
 impl ToComputedValue for specified::CalcLengthOrPercentage {
     type ComputedValue = CalcLengthOrPercentage;
 
-    fn to_computed_value(&self, context: &Context) -> CalcLengthOrPercentage {
+    fn to_computed_value<E>(&self, context: &Context<E>) -> Self::ComputedValue
+    where
+        E: ::dom::TElement,
+    {
         // normal properties don't zoom, and compute em units against the current style's font-size
         self.to_computed_value_with_zoom(context, |abs| abs, FontBaseSize::CurrentStyle)
     }
@@ -440,7 +452,10 @@ impl LengthOrPercentage {
 impl ToComputedValue for specified::LengthOrPercentage {
     type ComputedValue = LengthOrPercentage;
 
-    fn to_computed_value(&self, context: &Context) -> LengthOrPercentage {
+    fn to_computed_value<E>(&self, context: &Context<E>) -> Self::ComputedValue
+    where
+        E: ::dom::TElement,
+    {
         match *self {
             specified::LengthOrPercentage::Length(ref value) => {
                 LengthOrPercentage::Length(value.to_computed_value(context))
@@ -530,7 +545,10 @@ impl ToComputedValue for specified::LengthOrPercentageOrAuto {
     type ComputedValue = LengthOrPercentageOrAuto;
 
     #[inline]
-    fn to_computed_value(&self, context: &Context) -> LengthOrPercentageOrAuto {
+    fn to_computed_value<E>(&self, context: &Context<E>) -> Self::ComputedValue
+    where
+        E: ::dom::TElement,
+    {
         match *self {
             specified::LengthOrPercentageOrAuto::Length(ref value) => {
                 LengthOrPercentageOrAuto::Length(value.to_computed_value(context))
@@ -622,7 +640,10 @@ impl ToComputedValue for specified::LengthOrPercentageOrNone {
     type ComputedValue = LengthOrPercentageOrNone;
 
     #[inline]
-    fn to_computed_value(&self, context: &Context) -> LengthOrPercentageOrNone {
+    fn to_computed_value<E>(&self, context: &Context<E>) -> Self::ComputedValue
+    where
+        E: ::dom::TElement,
+    {
         match *self {
             specified::LengthOrPercentageOrNone::Length(ref value) => {
                 LengthOrPercentageOrNone::Length(value.to_computed_value(context))
@@ -972,7 +993,10 @@ impl ToComputedValue for specified::MozLength {
     type ComputedValue = MozLength;
 
     #[inline]
-    fn to_computed_value(&self, context: &Context) -> MozLength {
+    fn to_computed_value<E>(&self, context: &Context<E>) -> Self::ComputedValue
+    where
+        E: ::dom::TElement,
+    {
         debug_assert!(
             context.for_non_inherited_property.is_some(),
             "Someone added a MozLength to an inherited property? Evil!"
@@ -1031,7 +1055,10 @@ impl ToComputedValue for specified::MaxLength {
     type ComputedValue = MaxLength;
 
     #[inline]
-    fn to_computed_value(&self, context: &Context) -> MaxLength {
+    fn to_computed_value<E>(&self, context: &Context<E>) -> Self::ComputedValue
+    where
+        E: ::dom::TElement,
+    {
         debug_assert!(
             context.for_non_inherited_property.is_some(),
             "Someone added a MaxLength to an inherited property? Evil!"

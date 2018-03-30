@@ -328,7 +328,10 @@ where
 {
     type ComputedValue = ComputedLengthOrPercentage;
 
-    fn to_computed_value(&self, context: &Context) -> Self::ComputedValue {
+    fn to_computed_value<E>(&self, context: &Context<E>) -> Self::ComputedValue
+    where
+        E: ::dom::TElement,
+    {
         match *self {
             OriginComponent::Center => ComputedLengthOrPercentage::Percentage(ComputedPercentage(0.5)),
             OriginComponent::Length(ref length) => length.to_computed_value(context),
@@ -423,7 +426,10 @@ impl ToComputedValue for TimingFunction {
     type ComputedValue = ComputedTimingFunction;
 
     #[inline]
-    fn to_computed_value(&self, context: &Context) -> Self::ComputedValue {
+    fn to_computed_value<E>(&self, context: &Context<E>) -> Self::ComputedValue
+    where
+        E: ::dom::TElement,
+    {
         match *self {
             GenericTimingFunction::Keyword(keyword) => GenericTimingFunction::Keyword(keyword),
             GenericTimingFunction::CubicBezier {

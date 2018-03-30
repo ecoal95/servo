@@ -238,7 +238,12 @@ impl ToComputedValue for Number {
     type ComputedValue = CSSFloat;
 
     #[inline]
-    fn to_computed_value(&self, _: &Context) -> CSSFloat { self.get() }
+    fn to_computed_value<E>(&self, _: &Context<E>) -> CSSFloat
+    where
+        E: ::dom::TElement,
+    {
+        self.get()
+    }
 
     #[inline]
     fn from_computed_value(computed: &CSSFloat) -> Self {
@@ -360,7 +365,10 @@ impl ToComputedValue for Opacity {
     type ComputedValue = CSSFloat;
 
     #[inline]
-    fn to_computed_value(&self, context: &Context) -> CSSFloat {
+    fn to_computed_value<E>(&self, _: &Context<E>) -> CSSFloat
+    where
+        E: ::dom::TElement,
+    {
         let value = self.0.to_computed_value(context);
         if context.for_smil_animation {
             // SMIL expects to be able to interpolate between out-of-range
@@ -484,7 +492,12 @@ impl ToComputedValue for Integer {
     type ComputedValue = i32;
 
     #[inline]
-    fn to_computed_value(&self, _: &Context) -> i32 { self.value }
+    fn to_computed_value<E>(&self, _: &Context<E>) -> i32
+    where
+        E: ::dom::TElement,
+    {
+        self.value
+    }
 
     #[inline]
     fn from_computed_value(computed: &i32) -> Self {
@@ -597,7 +610,10 @@ impl ToComputedValue for ClipRect {
     type ComputedValue = super::computed::ClipRect;
 
     #[inline]
-    fn to_computed_value(&self, context: &Context) -> super::computed::ClipRect {
+    fn to_computed_value<E>(&self, _: &Context<E>) -> Self::ComputedValue
+    where
+        E: ::dom::TElement,
+    {
         super::computed::ClipRect {
             top: self.top.as_ref().map(|top| top.to_computed_value(context)),
             right: self.right.as_ref().map(|right| right.to_computed_value(context)),

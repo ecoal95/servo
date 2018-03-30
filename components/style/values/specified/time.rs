@@ -112,7 +112,10 @@ impl Time {
 impl ToComputedValue for Time {
     type ComputedValue = ComputedTime;
 
-    fn to_computed_value(&self, _context: &Context) -> Self::ComputedValue {
+    fn to_computed_value<E>(&self, _context: &Context<E>) -> Self::ComputedValue
+    where
+        E: ::dom::TElement,
+    {
         ComputedTime::from_seconds(self.seconds())
     }
 

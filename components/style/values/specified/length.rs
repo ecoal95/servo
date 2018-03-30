@@ -84,7 +84,10 @@ pub enum FontBaseSize {
 
 impl FontBaseSize {
     /// Calculate the actual size for a given context
-    pub fn resolve(&self, context: &Context) -> Au {
+    pub fn resolve<E>(&self, context: &Context<E>) -> Au
+    where
+        E: ::dom::TElement,
+    {
         match *self {
             FontBaseSize::Custom(size) => size,
             FontBaseSize::CurrentStyle => context.style().get_font().clone_font_size().size(),
@@ -96,7 +99,10 @@ impl FontBaseSize {
 
 impl FontRelativeLength {
     /// Computes the font-relative length.
-    pub fn to_computed_value(&self, context: &Context, base_size: FontBaseSize) -> CSSPixelLength {
+    pub fn to_computed_value<E>(&self, context: &Context<E>, base_size: FontBaseSize) -> CSSPixelLength
+    where
+        E: ::dom::TElement,
+    {
         use std::f32;
         let (reference_size, length) = self.reference_font_size_and_length(context, base_size);
         let pixel = (length * reference_size.to_f32_px()).min(f32::MAX).max(f32::MIN);
@@ -112,11 +118,11 @@ impl FontRelativeLength {
     /// second one is the unpacked relative length.
     fn reference_font_size_and_length(
         &self,
-        context: &Context,
+        context: &Context<E>,
         base_size: FontBaseSize,
     ) -> (Au, CSSFloat) {
-        fn query_font_metrics(
-            context: &Context,
+        fn query_font_metrics<E>(
+            context: &Context<E>,
             reference_font_size: Au,
         ) -> FontMetricsQueryResult {
             context.font_metrics_provider.query(
@@ -331,7 +337,10 @@ impl AbsoluteLength {
 impl ToComputedValue for AbsoluteLength {
     type ComputedValue = CSSPixelLength;
 
-    fn to_computed_value(&self, _: &Context) -> Self::ComputedValue {
+    fn to_computed_value<E>(&self, _: &Context<E>) -> Self::ComputedValue
+    where
+        E: ::dom::TElement,
+    {
         CSSPixelLength::new(self.to_px())
     }
 

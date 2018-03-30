@@ -339,10 +339,13 @@ impl Color {
     ///
     /// If `context` is `None`, and the specified color requires data from
     /// the context to resolve, then `None` is returned.
-    pub fn to_computed_color(
+    pub fn to_computed_color<E>(
         &self,
-        _context: Option<&Context>,
-    ) -> Option<ComputedColor> {
+        _context: Option<&Context<E>>,
+    ) -> Option<ComputedColor>
+    where
+        E: ::dom::TElement,
+    {
         match *self {
             Color::CurrentColor => {
                 Some(ComputedColor::currentcolor())
@@ -388,7 +391,10 @@ impl Color {
 impl ToComputedValue for Color {
     type ComputedValue = ComputedColor;
 
-    fn to_computed_value(&self, context: &Context) -> ComputedColor {
+    fn to_computed_value<E>(&self, context: &Context<E>) -> Self::ComputedValue
+    where
+        E: ::dom::TElement,
+    {
         let result = self.to_computed_color(Some(context)).unwrap();
         if result.foreground_ratio != 0 {
             if let Some(longhand) = context.for_non_inherited_property {
@@ -426,7 +432,10 @@ impl Parse for RGBAColor {
 impl ToComputedValue for RGBAColor {
     type ComputedValue = RGBA;
 
-    fn to_computed_value(&self, context: &Context) -> RGBA {
+    fn to_computed_value<E>(&self, context: &Context<E>) -> Self::ComputedValue
+    where
+        E: ::dom::TElement,
+    {
         self.0.to_computed_value(context)
             .to_rgba(context.style().get_color().clone_color())
     }
@@ -452,7 +461,10 @@ impl ToComputedValue for ColorPropertyValue {
     type ComputedValue = RGBA;
 
     #[inline]
-    fn to_computed_value(&self, context: &Context) -> RGBA {
+    fn to_computed_value<E>(&self, context: &Context<E>) -> Self::ComputedValue
+    where
+        E: ::dom::TElement,
+    {
         self.0.to_computed_value(context)
             .to_rgba(context.builder.get_parent_color().clone_color())
     }
