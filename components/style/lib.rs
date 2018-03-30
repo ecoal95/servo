@@ -83,6 +83,16 @@ extern crate void;
 #[macro_use]
 mod macros;
 
+/// The CSS properties supported by the style system.
+///
+/// Generated from the properties.mako.rs template by build.rs
+#[macro_use]
+#[allow(unsafe_code)]
+#[deny(missing_docs)]
+pub mod properties {
+    include!(concat!(env!("OUT_DIR"), "/properties.rs"));
+}
+
 #[cfg(feature = "servo")] pub mod animation;
 pub mod applicable_declarations;
 #[allow(missing_docs)] // TODO.
@@ -143,15 +153,6 @@ pub mod values;
 #[cfg(feature = "servo")] pub use html5ever::Prefix;
 #[cfg(feature = "servo")] pub use html5ever::LocalName;
 #[cfg(feature = "servo")] pub use html5ever::Namespace;
-
-/// The CSS properties supported by the style system.
-/// Generated from the properties.mako.rs template by build.rs
-#[macro_use]
-#[allow(unsafe_code)]
-#[deny(missing_docs)]
-pub mod properties {
-    include!(concat!(env!("OUT_DIR"), "/properties.rs"));
-}
 
 // uses a macro from properties
 #[cfg(feature = "servo")] #[allow(unsafe_code)] pub mod servo;

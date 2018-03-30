@@ -65,7 +65,7 @@ use gecko_bindings::sugar::ownership::{HasArcFFI, HasSimpleFFI};
 use hash::FnvHashMap;
 use logical_geometry::WritingMode;
 use media_queries::Device;
-use properties::{ComputedValues, LonghandId};
+use properties::{CascadePropertyArray, ComputedValues, LonghandId};
 use properties::{Importance, PropertyDeclaration, PropertyDeclarationBlock};
 use properties::animated_properties::{AnimationValue, AnimationValueMap};
 use properties::animated_properties::TransitionProperty;
@@ -1023,6 +1023,12 @@ impl<'le> TElement for GeckoElement<'le> {
     type ConcreteNode = GeckoNode<'le>;
     type FontMetricsProvider = GeckoFontMetricsProvider;
     type TraversalChildrenIterator = GeckoChildrenIterator<'le>;
+
+    fn cascade_property_array() -> &'static CascadePropertyArray<Self> {
+        static CASCADE_PROPERTY: CascadePropertyArray<GeckoElement> =
+            define_cascade_property_array!(GeckoElement);
+        &CASCADE_PROPERTY
+    }
 
     fn inheritance_parent(&self) -> Option<Self> {
         if self.is_native_anonymous() {

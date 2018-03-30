@@ -36,10 +36,18 @@ macro_rules! trivial_to_computed_value {
         impl $crate::values::computed::ToComputedValue for $name {
             type ComputedValue = $name;
 
-            fn to_computed_value(&self, _: &$crate::values::computed::Context) -> Self {
+            #[inline]
+            fn to_computed_value<E>(
+                &self,
+                _: &$crate::values::computed::Context<E>,
+            ) -> Self
+            where
+                E: $crate::dom::TElement,
+            {
                 self.clone()
             }
 
+            #[inline]
             fn from_computed_value(other: &Self) -> Self {
                 other.clone()
             }

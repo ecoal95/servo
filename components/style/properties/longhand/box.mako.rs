@@ -74,7 +74,10 @@ ${helpers.single_keyword("position", "static absolute relative fixed sticky",
         type ComputedValue = computed_value::T;
 
         #[inline]
-        fn to_computed_value(&self, context: &Context) -> computed_value::T {
+        fn to_computed_value<E>(&self, context: &Context<E>) -> computed_value::T
+        where
+            E: ::dom::TElement,
+        {
             let ltr = context.style().writing_mode.is_bidi_ltr();
             // https://drafts.csswg.org/css-logical-props/#float-clear
             match *self {
@@ -129,7 +132,10 @@ ${helpers.single_keyword("position", "static absolute relative fixed sticky",
         type ComputedValue = computed_value::T;
 
         #[inline]
-        fn to_computed_value(&self, context: &Context) -> computed_value::T {
+        fn to_computed_value<E>(&self, context: &Context<E>) -> computed_value::T
+        where
+            E: ::dom::TElement,
+        {
             let ltr = context.style().writing_mode.is_bidi_ltr();
             // https://drafts.csswg.org/css-logical-props/#float-clear
             match *self {

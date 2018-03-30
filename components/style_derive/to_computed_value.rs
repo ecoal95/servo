@@ -59,10 +59,13 @@ pub fn derive(mut input: DeriveInput) -> Tokens {
                 type ComputedValue = Self;
 
                 #[inline]
-                fn to_computed_value(
+                fn to_computed_value<E>(
                     &self,
-                    _context: &::values::computed::Context,
-                ) -> Self::ComputedValue {
+                    _context: &::values::computed::Context<E>,
+                ) -> Self::ComputedValue
+                where
+                    E: ::dom::TElement,
+                {
                     ::std::clone::Clone::clone(self)
                 }
 
@@ -86,7 +89,10 @@ pub fn derive(mut input: DeriveInput) -> Tokens {
 
             #[allow(unused_variables)]
             #[inline]
-            fn to_computed_value(&self, context: &::values::computed::Context) -> Self::ComputedValue {
+            fn to_computed_value<E>(&self, context: &::values::computed::Context<E>) -> Self::ComputedValue
+            where
+                E: ::dom::TElement,
+            {
                 match *self {
                     #to_body
                 }

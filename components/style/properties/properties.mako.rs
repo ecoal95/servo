@@ -3345,20 +3345,31 @@ mod lazy_static_module {
     }
 }
 
+
 /// A per-longhand function that performs the CSS cascade for that longhand.
-pub type CascadePropertyFn =
+pub type CascadePropertyFn<E> =
     extern "Rust" fn(
         declaration: &PropertyDeclaration,
-        context: &mut computed::Context,
+        context: &mut computed::Context<E>,
     );
 
 /// A per-longhand array of functions to perform the CSS cascade on each of
 /// them, effectively doing virtual dispatch.
-static CASCADE_PROPERTY: [CascadePropertyFn; ${len(data.longhands)}] = [
-    % for property in data.longhands:
-        longhands::${property.ident}::cascade_property,
-    % endfor
-];
+pub type CascadePropertyArray<E> =
+    [CascadePropertyFn<E>; ${len(data.longhands)}];
+
+// FIXME(emilio): This should use generics in statics instead, but that doesn't
+// work, so we need a bit of indirection...
+#[macro_export]
+macro_rules! define_cascade_property_array {
+    ($ty:ident) => {{
+        [
+            % for property in data.longhands:
+                $crate::properties::longhands::${property.ident}::cascade_property::<$ty>,
+            % endfor
+        ]
+    }}
+}
 
 bitflags! {
     /// A set of flags to tweak the behavior of the `cascade` function.
@@ -3546,6 +3557,8 @@ where
         rule_cache_conditions: RefCell::new(rule_cache_conditions),
     };
 
+    let cascade_property = E::cascade_property_array();
+
     let ignore_colors = !device.use_document_colors();
 
     // Set computed values, overwriting earlier declarations for the same
@@ -3659,7 +3672,7 @@ where
             % endif
 
             let discriminant = longhand_id as usize;
-            (CASCADE_PROPERTY[discriminant])(&*declaration, &mut context);
+            (cascade_property[discriminant])(&*declaration, &mut context);
         }
         % if category_to_cascade_now == "early":
             let writing_mode =
@@ -3741,7 +3754,7 @@ where
                 if let Some(ref declaration) = font_family {
 
                     let discriminant = LonghandId::FontFamily as usize;
-                    (CASCADE_PROPERTY[discriminant])(declaration, &mut context);
+                    (cascade_property[discriminant])(declaration, &mut context);
                     % if product == "gecko":
                         let device = context.builder.device;
                         if let PropertyDeclaration::FontFamily(ref val) = **declaration {
@@ -3759,7 +3772,7 @@ where
 
             if let Some(ref declaration) = font_size {
                 let discriminant = LonghandId::FontSize as usize;
-                (CASCADE_PROPERTY[discriminant])(declaration, &mut context);
+                (cascade_property[discriminant])(declaration, &mut context);
             % if product == "gecko":
             // Font size must be explicitly inherited to handle lang changes and
             // scriptlevel changes.
@@ -3773,7 +3786,7 @@ where
                     keyword: CSSWideKeyword::Inherit,
                 });
 
-                (CASCADE_PROPERTY[discriminant])(&size, &mut context);
+                (cascade_property[discriminant])(&size, &mut context);
             % endif
             }
 

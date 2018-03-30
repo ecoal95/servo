@@ -63,6 +63,7 @@ pub mod system_colors {
                           IMESelectedConvertedTextBackground IMESelectedConvertedTextForeground
                           IMESelectedConvertedTextUnderline SpellCheckerUnderline""".split()
     %>
+    use dom::TElement;
     use gecko_bindings::bindings::Gecko_GetLookAndFeelSystemColor;
     use gecko_bindings::structs::root::mozilla::LookAndFeel_ColorID;
     use std::fmt::{self, Write};
@@ -94,7 +95,10 @@ pub mod system_colors {
         type ComputedValue = u32; // nscolor
 
         #[inline]
-        fn to_computed_value(&self, cx: &Context) -> Self::ComputedValue {
+        fn to_computed_value<E>(&self, cx: &Context<E>) -> Self::ComputedValue
+        where
+            E: TElement,
+        {
             unsafe {
                 Gecko_GetLookAndFeelSystemColor(*self as i32,
                                                 cx.device().pres_context())

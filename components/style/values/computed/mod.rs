@@ -8,6 +8,7 @@ use Atom;
 #[cfg(feature = "servo")]
 use Prefix;
 use context::QuirksMode;
+use dom::TElement;
 use euclid::Size2D;
 use font_metrics::{FontMetricsProvider, get_metrics_provider_for_product};
 use media_queries::Device;
@@ -124,9 +125,13 @@ pub use ::gecko::url::{ComputedUrl, ComputedImageUrl};
 
 /// A `Context` is all the data a specified value could ever need to compute
 /// itself and be transformed to a computed value.
-pub struct Context<'a> {
-    /// Whether the current element is the root element.
-    pub is_root_element: bool,
+pub struct Context<'a, E>
+where
+    E: TElement,
+{
+    /// The element we're styling, if we're not styling a pseudo-element or what
+    /// not.
+    pub element: Option<E>,
 
     /// Values accessed through this need to be in the properties "computed
     /// early": color, text-decoration, font-size, display, position, float,
@@ -174,23 +179,26 @@ pub struct Context<'a> {
     pub rule_cache_conditions: RefCell<&'a mut RuleCacheConditions>,
 }
 
-impl<'a> Context<'a> {
+impl<'a, E> Context<'a, E>
+where
+    E: TElement,
+{
     /// Creates a suitable context for media query evaluation, in which
     /// font-relative units compute against the system_font, and executes `f`
     /// with it.
-    pub fn for_media_query_evaluation<F, R>(
+    pub fn for_media_query_evaluation<F, R, E>(
         device: &Device,
         quirks_mode: QuirksMode,
         f: F,
     ) -> R
     where
-        F: FnOnce(&Context) -> R
+        F: FnOnce(&Self) -> R
     {
         let mut conditions = RuleCacheConditions::default();
         let provider = get_metrics_provider_for_product();
 
         let context = Context {
-            is_root_element: false,
+            element: None,
             builder: StyleBuilder::for_inheritance(device, None, None),
             font_metrics_provider: &provider,
             cached_system_font: None,
@@ -206,7 +214,7 @@ impl<'a> Context<'a> {
 
     /// Whether the current element is the root element.
     pub fn is_root_element(&self) -> bool {
-        self.is_root_element
+        self.element.map_or(false, |e| e.is_root())
     }
 
     /// The current device.
@@ -251,28 +259,25 @@ impl<'a> Context<'a> {
 
 /// An iterator over a slice of computed values
 #[derive(Clone)]
-pub struct ComputedVecIter<'a, 'cx, 'cx_a: 'cx, S: ToComputedValue + 'a> {
-    cx: &'cx Context<'cx_a>,
+pub struct ComputedVecIter<'a, 'cx, 'cx_a: 'cx, E: TElement, S: ToComputedValue + 'a> {
+    cx: &'cx Context<'cx_a, E>,
     values: &'a [S],
 }
 
-impl<'a, 'cx, 'cx_a: 'cx, S: ToComputedValue + 'a> ComputedVecIter<'a, 'cx, 'cx_a, S> {
+impl<'a, 'cx, 'cx_a: 'cx, E: TElement, S: ToComputedValue + 'a> ComputedVecIter<'a, 'cx, 'cx_a, E, S> {
     /// Construct an iterator from a slice of specified values and a context
-    pub fn new(cx: &'cx Context<'cx_a>, values: &'a [S]) -> Self {
-        ComputedVecIter {
-            cx: cx,
-            values: values,
-        }
+    pub fn new(cx: &'cx Context<'cx_a, E>, values: &'a [S]) -> Self {
+        ComputedVecIter { cx, values, }
     }
 }
 
-impl<'a, 'cx, 'cx_a: 'cx, S: ToComputedValue + 'a> ExactSizeIterator for ComputedVecIter<'a, 'cx, 'cx_a, S> {
+impl<'a, 'cx, 'cx_a: 'cx, E: TElement, S: ToComputedValue + 'a> ExactSizeIterator for ComputedVecIter<'a, 'cx, 'cx_a, E, S> {
     fn len(&self) -> usize {
         self.values.len()
     }
 }
 
-impl<'a, 'cx, 'cx_a: 'cx, S: ToComputedValue + 'a> Iterator for ComputedVecIter<'a, 'cx, 'cx_a, S> {
+impl<'a, 'cx, 'cx_a: 'cx, E: TElement, S: ToComputedValue + 'a> Iterator for ComputedVecIter<'a, 'cx, 'cx_a, E, S> {
     type Item = S::ComputedValue;
     fn next(&mut self) -> Option<Self::Item> {
         if let Some((next, rest)) = self.values.split_first() {
@@ -304,7 +309,9 @@ pub trait ToComputedValue {
     /// Convert a specified value to a computed value, using itself and the data
     /// inside the `Context`.
     #[inline]
-    fn to_computed_value(&self, context: &Context) -> Self::ComputedValue;
+    fn to_computed_value<E>(&self, context: &Context<E>) -> Self::ComputedValue
+    where
+        E: TElement;
 
     #[inline]
     /// Convert a computed value to specified value form.

@@ -145,7 +145,7 @@
                 }
             % endif
 
-            pub type Iter<'a, 'cx, 'cx_a> = ComputedVecIter<'a, 'cx, 'cx_a, super::single_value::SpecifiedValue>;
+            pub type Iter<'a, 'cx, 'cx_a, E> = ComputedVecIter<'a, 'cx, 'cx_a, super::single_value::SpecifiedValue, E>;
 
             impl IntoIterator for T {
                 type Item = single_value::T;
@@ -202,8 +202,13 @@
         pub use self::single_value::SpecifiedValue as SingleSpecifiedValue;
 
         impl SpecifiedValue {
-            pub fn compute_iter<'a, 'cx, 'cx_a>(&'a self, context: &'cx Context<'cx_a>)
-                -> computed_value::Iter<'a, 'cx, 'cx_a> {
+            pub fn compute_iter<'a, 'cx, 'cx_a, E>(
+                &'a self,
+                context: &'cx Context<'cx_a, E>,
+            ) -> computed_value::Iter<'a, 'cx, 'cx_a, E>
+            where
+                E: TElement,
+            {
                 computed_value::Iter::new(context, &self.0)
             }
         }
@@ -212,7 +217,10 @@
             type ComputedValue = computed_value::T;
 
             #[inline]
-            fn to_computed_value(&self, context: &Context) -> computed_value::T {
+            fn to_computed_value<E>(&self, context: &Context<E>) -> computed_value::T
+            where
+                E: TElement,
+            {
                 computed_value::T(self.compute_iter(context).collect())
             }
 
@@ -235,6 +243,8 @@
     pub mod ${property.ident} {
         #[allow(unused_imports)]
         use cssparser::{Parser, BasicParseError, Token};
+        #[allow(unused_imports)]
+        use dom::TElement;
         #[allow(unused_imports)]
         use parser::{Parse, ParserContext};
         #[allow(unused_imports)]
@@ -265,10 +275,13 @@
         use Atom;
         ${caller.body()}
         #[allow(unused_variables)]
-        pub fn cascade_property(
+        pub fn cascade_property<E>(
             declaration: &PropertyDeclaration,
-            context: &mut computed::Context,
-        ) {
+            context: &mut computed::Context<E>,
+        )
+        where
+            E: ::dom::TElement,
+        {
             let value = match *declaration {
                 PropertyDeclaration::${property.camel_case}(ref value) => {
                     DeclaredValue::Value(value)
@@ -420,7 +433,10 @@
 
         impl ToComputedValue for SpecifiedValue {
             type ComputedValue = computed_value::T;
-            fn to_computed_value(&self, _cx: &Context) -> Self::ComputedValue {
+            fn to_computed_value<E>(&self, _cx: &Context<E>) -> Self::ComputedValue
+            where
+                E: TElement,
+            {
                 match *self {
                     SpecifiedValue::Keyword(v) => v,
                     SpecifiedValue::System(_) => {

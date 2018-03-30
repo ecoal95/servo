@@ -499,12 +499,15 @@ impl AnimationValue {
     }
 
     /// Construct an AnimationValue from a property declaration.
-    pub fn from_declaration(
+    pub fn from_declaration<E>(
         decl: &PropertyDeclaration,
-        context: &mut Context,
+        context: &mut Context<E>,
         extra_custom_properties: Option<<&Arc<::custom_properties::CustomPropertiesMap>>,
         initial: &ComputedValues
-    ) -> Option<Self> {
+    ) -> Option<Self>
+    where
+        E: ::dom::TElement,
+    {
         use super::PropertyDeclarationVariantRepr;
 
         <%

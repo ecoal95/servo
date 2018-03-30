@@ -16,7 +16,7 @@ use data::ElementData;
 use element_state::ElementState;
 use font_metrics::FontMetricsProvider;
 use media_queries::Device;
-use properties::{AnimationRules, ComputedValues, PropertyDeclarationBlock};
+use properties::{AnimationRules, CascadePropertyArray, ComputedValues, PropertyDeclarationBlock};
 use selector_parser::{AttrValue, PseudoClassStringArg, PseudoElement, SelectorImpl};
 use selectors::Element as SelectorsElement;
 use selectors::matching::{ElementSelectorFlags, QuirksMode, VisitedHandlingMode};
@@ -362,6 +362,9 @@ pub trait TElement
     /// XXXManishearth It would be better to make this a type parameter on
     /// ThreadLocalStyleContext and StyleContext
     type FontMetricsProvider: FontMetricsProvider + Send;
+
+    /// Kind of a hack to work around lack of generic statics.
+    fn cascade_property_array() -> &'static CascadePropertyArray<Self>;
 
     /// Get this element as a node.
     fn as_node(&self) -> Self::ConcreteNode;

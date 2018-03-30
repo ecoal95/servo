@@ -8,6 +8,7 @@ use Atom;
 use app_units::Au;
 use byteorder::{BigEndian, ByteOrder};
 use cssparser::{Parser, Token};
+use dom::TElement;
 #[cfg(feature = "gecko")]
 use gecko_bindings::bindings;
 #[cfg(feature = "gecko")]
@@ -92,7 +93,10 @@ impl ToComputedValue for FontWeight {
     type ComputedValue = computed::FontWeight;
 
     #[inline]
-    fn to_computed_value(&self, context: &Context) -> Self::ComputedValue {
+    fn to_computed_value<E>(&self, context: &Context<E>) -> Self::ComputedValue
+    where
+        E: TElement,
+    {
         match *self {
             FontWeight::Weight(weight) => weight,
             FontWeight::Normal => computed::FontWeight::normal(),
@@ -193,7 +197,10 @@ impl FontFamily {
 impl ToComputedValue for FontFamily {
     type ComputedValue = computed::FontFamily;
 
-    fn to_computed_value(&self, _cx: &Context) -> Self::ComputedValue {
+    fn to_computed_value<E>(&self, _cx: &Context<E>) -> Self::ComputedValue
+    where
+        E: TElement,
+    {
         match *self {
             FontFamily::Values(ref v) => computed::FontFamily(v.clone()),
             FontFamily::System(_) => {
@@ -290,7 +297,10 @@ impl FontSizeAdjust {
 impl ToComputedValue for FontSizeAdjust {
     type ComputedValue = computed::FontSizeAdjust;
 
-    fn to_computed_value(&self, context: &Context) -> Self::ComputedValue {
+    fn to_computed_value<E>(&self, context: &Context<E>) -> Self::ComputedValue
+    where
+        E: TElement,
+    {
         match *self {
             FontSizeAdjust::None => computed::FontSizeAdjust::None,
             FontSizeAdjust::Number(ref n) => computed::FontSizeAdjust::Number(n.to_computed_value(context)),
@@ -330,7 +340,10 @@ pub type KeywordInfo = GenericKeywordInfo<NonNegativeLength>;
 impl KeywordInfo {
     /// Computes the final size for this font-size keyword, accounting for
     /// text-zoom.
-    pub fn to_computed_value(&self, context: &Context) -> NonNegativeLength {
+    pub fn to_computed_value<E>(&self, context: &Context<E>) -> NonNegativeLength
+    where
+        E: TElement,
+    {
         let base = context.maybe_zoom_text(self.kw.to_computed_value(context));
         base.scale_by(self.factor) + context.maybe_zoom_text(self.offset)
     }
@@ -371,7 +384,10 @@ pub const FONT_MEDIUM_PX: i32 = 16;
 impl ToComputedValue for KeywordSize {
     type ComputedValue = NonNegativeLength;
     #[inline]
-    fn to_computed_value(&self, _: &Context) -> NonNegativeLength {
+    fn to_computed_value<E>(&self, _: &Context<E>) -> NonNegativeLength
+    where
+        E: TElement,
+    {
         // https://drafts.csswg.org/css-fonts-3/#font-size-prop
         match *self {
             KeywordSize::XXSmall => Au::from_px(FONT_MEDIUM_PX) * 3 / 5,
@@ -395,7 +411,10 @@ impl ToComputedValue for KeywordSize {
 impl ToComputedValue for KeywordSize {
     type ComputedValue = NonNegativeLength;
     #[inline]
-    fn to_computed_value(&self, cx: &Context) -> NonNegativeLength {
+    fn to_computed_value<E>(&self, cx: &Context) -> NonNegativeLength
+    where
+        E: TElement,
+    {
         use context::QuirksMode;
         use values::specified::length::au_to_int_px;
         // Data from nsRuleNode.cpp in Gecko
@@ -483,11 +502,14 @@ impl FontSize {
     }
 
     /// Compute it against a given base font size
-    pub fn to_computed_value_against(
+    pub fn to_computed_value_against<E>(
         &self,
-        context: &Context,
+        context: &Context<E>,
         base_size: FontBaseSize,
-    ) -> computed::FontSize {
+    ) -> computed::FontSize
+    where
+        E: TElement,
+    {
         use values::specified::length::FontRelativeLength;
 
         let compose_keyword = |factor| {
@@ -588,7 +610,10 @@ impl ToComputedValue for FontSize {
     type ComputedValue = computed::FontSize;
 
     #[inline]
-    fn to_computed_value(&self, context: &Context) -> computed::FontSize {
+    fn to_computed_value<E>(&self, context: &Context<E>) -> computed::FontSize
+    where
+        E: TElement,
+    {
         self.to_computed_value_against(context, FontBaseSize::InheritedStyle)
     }
 
@@ -796,7 +821,10 @@ impl FontVariantAlternates {
 impl ToComputedValue for FontVariantAlternates {
     type ComputedValue = computed::FontVariantAlternates;
 
-    fn to_computed_value(&self, _context: &Context) -> computed::FontVariantAlternates {
+    fn to_computed_value<E>(&self, _context: &Context<E>) -> computed::FontVariantAlternates
+    where
+        E: TElement,
+    {
         match *self {
             FontVariantAlternates::Value(ref v) => v.clone(),
             FontVariantAlternates::System(_) => {
@@ -1058,7 +1086,10 @@ impl FontVariantEastAsian {
 impl ToComputedValue for FontVariantEastAsian {
     type ComputedValue = computed::FontVariantEastAsian;
 
-    fn to_computed_value(&self, _context: &Context) -> computed::FontVariantEastAsian {
+    fn to_computed_value<E>(&self, _context: &Context<E>) -> computed::FontVariantEastAsian
+    where
+        E: TElement,
+    {
         match *self {
             FontVariantEastAsian::Value(ref v) => v.clone(),
             FontVariantEastAsian::System(_) => {
@@ -1304,7 +1335,10 @@ impl FontVariantLigatures {
 impl ToComputedValue for FontVariantLigatures {
     type ComputedValue = computed::FontVariantLigatures;
 
-    fn to_computed_value(&self, _context: &Context) -> computed::FontVariantLigatures {
+    fn to_computed_value<E>(&self, _context: &Context<E>) -> computed::FontVariantLigatures
+    where
+        E: TElement,
+    {
         match *self {
             FontVariantLigatures::Value(ref v) => v.clone(),
             FontVariantLigatures::System(_) => {
@@ -1537,7 +1571,10 @@ impl FontVariantNumeric {
 impl ToComputedValue for FontVariantNumeric {
     type ComputedValue = computed::FontVariantNumeric;
 
-    fn to_computed_value(&self, _context: &Context) -> computed::FontVariantNumeric {
+    fn to_computed_value<E>(&self, _context: &Context<E>) -> computed::FontVariantNumeric
+    where
+        E: TElement,
+    {
         match *self {
             FontVariantNumeric::Value(ref v) => v.clone(),
             FontVariantNumeric::System(_) => {
@@ -1658,7 +1695,10 @@ impl FontFeatureSettings {
 impl ToComputedValue for FontFeatureSettings {
     type ComputedValue = computed::FontFeatureSettings;
 
-    fn to_computed_value(&self, context: &Context) -> computed::FontFeatureSettings {
+    fn to_computed_value<E>(&self, context: &Context<E>) -> computed::FontFeatureSettings
+    where
+        E: TElement,
+    {
         match *self {
             FontFeatureSettings::Value(ref v) => v.to_computed_value(context),
             FontFeatureSettings::System(_) => {
@@ -1821,7 +1861,10 @@ impl ToComputedValue for FontLanguageOverride {
     type ComputedValue = computed::FontLanguageOverride;
 
     #[inline]
-    fn to_computed_value(&self, _context: &Context) -> computed::FontLanguageOverride {
+    fn to_computed_value<E>(&self, _context: &Context<E>) -> computed::FontLanguageOverride
+    where
+        E: TElement,
+    {
         match *self {
             FontLanguageOverride::Normal => computed::FontLanguageOverride(0),
             FontLanguageOverride::Override(ref lang) => {
@@ -1913,7 +1956,10 @@ impl FontVariationSettings {
 impl ToComputedValue for FontVariationSettings {
     type ComputedValue = computed::FontVariationSettings;
 
-    fn to_computed_value(&self, context: &Context) -> computed::FontVariationSettings {
+    fn to_computed_value<E>(&self, context: &Context<E>) -> computed::FontVariationSettings
+    where
+        E: TElement,
+    {
         match *self {
             FontVariationSettings::Value(ref v) => v.to_computed_value(context),
             FontVariationSettings::System(_) => {

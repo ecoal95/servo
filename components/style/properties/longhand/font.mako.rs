@@ -276,6 +276,7 @@ ${helpers.predefined_type("-x-text-zoom",
 
         use app_units::Au;
         use cssparser::{Parser, ToCss};
+        use dom::TElement;
         use gecko_bindings::structs::FontFamilyType;
         use properties::longhands;
         use std::fmt;
@@ -324,7 +325,10 @@ ${helpers.predefined_type("-x-text-zoom",
         impl ToComputedValue for SystemFont {
             type ComputedValue = ComputedSystemFont;
 
-            fn to_computed_value(&self, cx: &Context) -> Self::ComputedValue {
+            fn to_computed_value<E>(&self, cx: &Context<E>) -> Self::ComputedValue
+            where
+                E: TElement,
+            {
                 use gecko_bindings::bindings;
                 use gecko_bindings::structs::{LookAndFeel_FontID, nsFont};
                 use std::mem;
@@ -391,7 +395,10 @@ ${helpers.predefined_type("-x-text-zoom",
         ///
         /// Must be called before attempting to compute a system font
         /// specified value
-        pub fn resolve_system_font(system: SystemFont, context: &mut Context) {
+        pub fn resolve_system_font<E>(system: SystemFont, context: &mut Context<E>)
+        where
+            E: ::dom::TElement,
+        {
             // Checking if context.cached_system_font.is_none() isn't enough,
             // if animating from one system font to another the cached system font
             // may change

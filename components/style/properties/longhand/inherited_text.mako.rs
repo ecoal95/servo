@@ -81,7 +81,10 @@ ${helpers.single_keyword("word-break",
         type ComputedValue = computed_value::T;
 
         #[inline]
-        fn to_computed_value(&self, _: &Context) -> computed_value::T {
+        fn to_computed_value<E>(&self, _: &Context<E>) -> computed_value::T
+        where
+            E: ::dom::TElement,
+        {
             match *self {
                 % for value in "Auto None InterCharacter InterWord".split():
                 SpecifiedValue::${value} => computed_value::T::${value},
