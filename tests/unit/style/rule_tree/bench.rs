@@ -71,8 +71,8 @@ fn parse_rules(css: &str) -> Vec<(StyleSource, CascadeLevel)> {
     }).collect()
 }
 
-fn test_insertion(rule_tree: &RuleTree, rules: Vec<(StyleSource, CascadeLevel)>) -> StrongRuleNode {
-    rule_tree.insert_ordered_rules(rules.into_iter())
+fn test_insertion(rule_tree: &RuleTree, rules: &[(StyleSource, CascadeLevel)]) -> StrongRuleNode {
+    rule_tree.insert_ordered_rules(rules.iter().map(|(source, level)| (source.clone(), *level)))
 }
 
 fn test_insertion_style_attribute(rule_tree: &RuleTree, rules: &[(StyleSource, CascadeLevel)],
@@ -84,7 +84,7 @@ fn test_insertion_style_attribute(rule_tree: &RuleTree, rules: &[(StyleSource, C
             longhands::display::SpecifiedValue::Block),
         Importance::Normal
     )))), CascadeLevel::UserNormal));
-    test_insertion(rule_tree, rules)
+    test_insertion(rule_tree, &rules)
 }
 
 #[bench]
@@ -101,7 +101,7 @@ fn bench_insertion_basic(b: &mut Bencher) {
         let _gc = AutoGCRuleTree::new(&r);
 
         for _ in 0..(4000 + 400) {
-            test::black_box(test_insertion(&r, rules_matched.clone()));
+            test::black_box(test_insertion(&r, &rules_matched));
         }
     })
 }
@@ -119,7 +119,7 @@ fn bench_insertion_basic_per_element(b: &mut Bencher) {
     b.iter(|| {
         let _gc = AutoGCRuleTree::new(&r);
 
-        test::black_box(test_insertion(&r, rules_matched.clone()));
+        test::black_box(test_insertion(&r, &rules_matched));
     });
 }
 
@@ -163,13 +163,11 @@ fn bench_insertion_basic_parallel(b: &mut Bencher) {
             for _ in 0..4 {
                 s.spawn(|s| {
                     for _ in 0..1000 {
-                        test::black_box(test_insertion(&r,
-                                                       rules_matched.clone()));
+                        test::black_box(test_insertion(&r, &rules_matched));
                     }
                     s.spawn(|_| {
                         for _ in 0..100 {
-                            test::black_box(test_insertion(&r,
-                                                           rules_matched.clone()));
+                            test::black_box(test_insertion(&r, &rules_matched));
                         }
                     })
                 })
@@ -210,5 +208,27 @@ fn bench_expensive_insertion_parallel(b: &mut Bencher) {
                 })
             }
         });
+    });
+}
+
+#[bench]
+fn bench_expensive_single_insertion(b: &mut Bencher) {
+    let r = RuleTree::new();
+    thread_state::initialize(ThreadState::SCRIPT);
+
+    let rules_matched = parse_rules(
+        ".foo { width: 200px; } \
+         .bar { height: 500px; } \
+         .baz { display: block; }");
+
+    let rules =
+        ::std::iter::repeat(rules_matched)
+            .take(10000)
+            .flat_map(|s| s)
+            .collect::<Vec<_>>();
+
+    b.iter(|| {
+        let _gc = AutoGCRuleTree::new(&r);
+        test::black_box(test_insertion(&r, &rules));
     });
 }
